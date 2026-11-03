@@ -1,6 +1,6 @@
 {
-  "name": "Agent Hub",
-  "short_name": "Agent Hub",
+  "name": "Command Hub",
+  "short_name": "Command Hub",
   "description": "One place to direct every AI agent",
   "start_url": "/",
   "display": "standalone",

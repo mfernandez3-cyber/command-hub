@@ -30,7 +30,7 @@ function LoginForm() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
       <div>
-        <h1 className="text-[30px] font-bold tracking-tight">Agent Hub</h1>
+        <h1 className="text-[30px] font-bold tracking-tight">Command Hub</h1>
         <p className="mt-1 text-sm text-quiet">Sign in with the email your account was set up with.</p>
       </div>
       {params.get("error") === "not-allowed" && (

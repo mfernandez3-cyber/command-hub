@@ -2,11 +2,11 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Agent Hub",
+  title: "Command Hub",
   description: "One place to direct every AI agent",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
-  appleWebApp: { capable: true, title: "Agent Hub", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Command Hub", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
