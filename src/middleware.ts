@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/manifest.webmanifest", "/icon.svg"];
+// The agent door (/agent and /api/agent) checks its own key, so it skips the human login.
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/manifest.webmanifest", "/icon.svg", "/agent", "/api/agent"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -29,7 +30,9 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublic = PUBLIC_PATHS.some((p) => request.nextUrl.pathname.startsWith(p));
+  const path = request.nextUrl.pathname;
+  const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+  if (path === "/agent" || path.startsWith("/api/agent/")) return response;
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

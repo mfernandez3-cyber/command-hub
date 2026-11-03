@@ -47,7 +47,7 @@ export default async function AgentsPage() {
                 const now = current.get(a.id);
                 return (
                   <li key={a.id}>
-                    <Link href={`/tasks?agent=${a.id}`} className="flex items-center gap-3 px-3.5 py-3">
+                    <Link href={`/agents/${a.id}`} className="flex items-center gap-3 px-3.5 py-3">
                       <Avatar name={a.name} dark={a.name === "Tara"} />
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="text-[15px] font-semibold">

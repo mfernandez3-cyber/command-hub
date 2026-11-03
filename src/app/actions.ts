@@ -158,6 +158,32 @@ export async function deleteMemory(formData: FormData) {
   redirect("/memory");
 }
 
+/** Owner only: makes a fresh key for an agent. The old key stops working right away. */
+export async function createAgentKey(
+  _prev: { key?: string; error?: string } | null,
+  formData: FormData,
+): Promise<{ key?: string; error?: string }> {
+  const agentId = String(formData.get("agentId"));
+  const { supabase, profile } = await me();
+  if (profile.role !== "owner") return { error: "Only the owner can create agent keys." };
+  const { newKey } = await import("@/lib/agent-door");
+  const { key, hash, hint } = newKey();
+  const { error } = await supabase
+    .from("agent_keys")
+    .upsert({ agent_id: agentId, key_hash: hash, key_hint: hint, created_at: new Date().toISOString(), last_used_at: null });
+  if (error) return { error: "Could not save the key. Has the 0003 database update been run?" };
+  revalidatePath(`/agents/${agentId}`);
+  return { key };
+}
+
+export async function revokeAgentKey(formData: FormData) {
+  const agentId = String(formData.get("agentId"));
+  const { supabase, profile } = await me();
+  if (profile.role !== "owner") return;
+  await supabase.from("agent_keys").delete().eq("agent_id", agentId);
+  revalidatePath(`/agents/${agentId}`);
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
