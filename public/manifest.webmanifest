@@ -1,0 +1,12 @@
+{
+  "name": "Agent Hub",
+  "short_name": "Agent Hub",
+  "description": "One place to direct every AI agent",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f2f3f5",
+  "theme_color": "#f2f3f5",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
