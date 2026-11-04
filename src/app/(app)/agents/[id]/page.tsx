@@ -73,7 +73,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
               used {key.last_used_at ? relative(key.last_used_at) : "never"}.
             </p>
           )}
-          <KeyMaker agentId={a.id} agentName={a.name} hasKey={!!key} action={createAgentKey} />
+          <KeyMaker agentId={a.id} agentName={a.name} chief={a.can_route} hasKey={!!key} action={createAgentKey} />
           {key && (
             <form action={revokeAgentKey}>
               <input type="hidden" name="agentId" value={a.id} />

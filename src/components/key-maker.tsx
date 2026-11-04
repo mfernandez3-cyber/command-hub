@@ -1,15 +1,18 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { onboardingMessage } from "@/lib/onboarding";
 
 export function KeyMaker({
   agentId,
   agentName,
+  chief,
   hasKey,
   action,
 }: {
   agentId: string;
   agentName: string;
+  chief: boolean;
   hasKey: boolean;
   action: (prev: { key?: string; error?: string } | null, fd: FormData) => Promise<{ key?: string; error?: string }>;
 }) {
@@ -18,6 +21,7 @@ export function KeyMaker({
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const deskLink = state?.key ? `${origin}/agent?key=${state.key}` : "";
+  const setup = state?.key ? onboardingMessage({ name: agentName, chief, origin, key: state.key }) : "";
 
   async function copy(value: string, label: string) {
     await navigator.clipboard.writeText(value);
@@ -30,9 +34,16 @@ export function KeyMaker({
       {state?.key ? (
         <div className="flex flex-col gap-3 rounded-xl border border-warn-line bg-warn-soft p-3">
           <p className="text-sm text-warn-ink">
-            Copy these now. For safety, the key is only shown once. Give them to {agentName} only, never in a group chat
-            or a shared doc.
+            Copy this now. For safety, it&apos;s only shown once. Paste it into your private chat with {agentName} only,
+            never a group chat or a shared doc.
           </p>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-quiet">Setup message (paste this whole thing to {agentName})</span>
+            <textarea readOnly value={setup} rows={6} className="rounded bg-card p-2 font-mono text-xs" />
+            <button type="button" onClick={() => copy(setup, "setup")} className="h-11 rounded-full bg-accent text-sm font-semibold text-white">
+              {copied === "setup" ? "Copied" : "Copy setup message"}
+            </button>
+          </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-quiet">Key</span>
             <code className="break-all rounded bg-card p-2 font-mono text-xs">{state.key}</code>

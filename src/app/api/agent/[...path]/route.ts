@@ -10,6 +10,7 @@ import {
   newTask,
   postNote,
   readMemory,
+  registerWakeHook,
 } from "@/lib/agent-actions";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export const dynamic = "force-dynamic";
   POST /api/agent/tasks/:id/assign        { to, note? }                    chief of staff only
   POST /api/agent/tasks/:id/approval      { action_type, summary, amount_usd?, details? }
   GET  /api/agent/memory?q=               shared notes
+  POST /api/agent/wake-hook               { url, key }   register your own wake webhook, then a test is sent
 */
 
 async function readBody(req: Request): Promise<Record<string, unknown>> {
@@ -53,6 +55,7 @@ async function handle(req: Request, path: string[], method: "GET" | "POST") {
   if (method === "GET" && root === "tasks" && !id) return { agent: agent.name, tasks: await listTasks(agent) };
   if (method === "GET" && root === "memory") return { notes: await readMemory(agent, new URL(req.url).searchParams.get("q")) };
 
+  if (method === "POST" && root === "wake-hook") return registerWakeHook(agent, body);
   if (method === "POST" && root === "tasks" && !id) return newTask(agent, body);
   if (method === "POST" && root === "tasks" && id) {
     switch (action) {

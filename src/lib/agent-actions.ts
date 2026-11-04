@@ -207,3 +207,36 @@ export async function readMemory(agent: DoorAgent, q: string | null) {
     })
     .map(({ title, body, tags, updated_at }) => ({ title, body, tags, updated_at }));
 }
+
+/** An agent registers its own wake webhook (for example its Grok Bot routine). A test wake is sent right away. */
+export async function registerWakeHook(agent: DoorAgent, input: Record<string, unknown>) {
+  const url = text(input.url, "url", 500);
+  let secret = text(input.key ?? input.secret, "key", 500);
+  if (secret.toLowerCase().startsWith("bearer ")) secret = secret.slice(7).trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new DoorError(400, "url must be a full https web address");
+  }
+  if (parsed.protocol !== "https:" || ["localhost", "127.0.0.1"].includes(parsed.hostname))
+    throw new DoorError(400, "url must start with https://");
+  const db = createAdminClient();
+  const { error } = await db.from("agent_webhooks").upsert({
+    agent_id: agent.id,
+    url,
+    secret,
+    secret_hint: secret.slice(0, 5) + "..." + secret.slice(-4),
+    enabled: true,
+    last_status: null,
+    last_error: null,
+  });
+  if (error) throw new DoorError(500, "Could not save the wake hook");
+  const test = await wakeAgent(agent.id, "test");
+  return {
+    ok: test.ok,
+    message: test.ok
+      ? "Saved. A test wake was sent; your routine should run now and reply in chat."
+      : `Saved, but the test wake failed (${test.status || "no response"}${test.error ? ": " + test.error : ""}). Check the address and key.`,
+  };
+}
