@@ -1,5 +1,12 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { repoFromText } from "@/lib/repo";
+
+export function hubOrigin() {
+  if (process.env.HUB_URL) return process.env.HUB_URL.replace(/\/$/, "");
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  return "https://command-hub-phi.vercel.app";
+}
 
 export type WakeEvent = "new_task" | "handed_to_you" | "approval_decided" | "new_reply" | "test";
 
@@ -18,6 +25,15 @@ const eventText: Record<WakeEvent, string> = {
 export async function wakeAgent(agentId: string | null | undefined, event: WakeEvent, taskId?: string, note?: string) {
   if (!agentId) return { ok: false, skipped: true };
   const db = createAdminClient();
+
+  // Cursor is driven directly through its API, no wake hook needed.
+  const { data: who } = await db.from("agents").select("adapter").eq("id", agentId).maybeSingle();
+  if (who?.adapter === "cursor" && taskId) {
+    const { runCursorTask } = await import("@/lib/cursor");
+    await runCursorTask(taskId, event, hubOrigin(), note);
+    return { ok: true };
+  }
+
   const { data: hook } = await db.from("agent_webhooks").select("url, secret, enabled").eq("agent_id", agentId).maybeSingle();
   if (!hook || !hook.enabled) return { ok: false, skipped: true };
 
@@ -41,13 +57,32 @@ export async function wakeAgent(agentId: string | null | undefined, event: WakeE
     sent_at: new Date().toISOString(),
   };
 
+  // GitHub (Claude Code in GitHub Actions): send a repository_dispatch, only when there's new work.
+  const github = new URL(hook.url).hostname === "api.github.com";
+  if (github && !["new_task", "handed_to_you", "test"].includes(event)) return { ok: false, skipped: true };
+  const body = github
+    ? {
+        event_type: "hub-task",
+        client_payload: {
+          event,
+          hub_url: hubOrigin(),
+          repo: task ? repoFromText(task.instruction) : null,
+          task: task ? { id: task.id, title: task.title, instruction: task.instruction } : null,
+        },
+      }
+    : payload;
+
   let status = 0;
   let error: string | null = null;
   try {
     const res = await fetch(hook.url, {
       method: "POST",
-      headers: { Authorization: `Bearer ${hook.secret}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${hook.secret}`,
+        "Content-Type": "application/json",
+        ...(github ? { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "command-hub" } : {}),
+      },
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
       cache: "no-store",
     });

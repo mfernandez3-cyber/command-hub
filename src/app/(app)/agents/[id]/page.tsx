@@ -23,6 +23,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
   if (!agent) notFound();
   const a = agent as Agent & { can_route: boolean; last_seen_at: string | null };
   const isOwner = profile?.role === "owner";
+  const cursorOn = !!process.env.CURSOR_API_KEY;
   const hook = isOwner
     ? (
         await createAdminClient()
@@ -60,7 +61,22 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
         Last checked in: {a.last_seen_at ? relative(a.last_seen_at) : "never"}
       </p>
 
-      {isOwner && (
+      {isOwner && a.adapter === "cursor" && (
+        <section className="flex flex-col gap-2 rounded-2xl bg-card p-4 text-sm">
+          <h2 className="text-[15px] font-semibold">Connection</h2>
+          <p className={cursorOn ? "text-good" : "text-quiet"}>
+            {cursorOn
+              ? "Connected. Tasks assigned to Cursor start a cloud agent right away and report back with a pull request."
+              : "Not connected yet. Add CURSOR_API_KEY in Vercel (Settings > Environment Variables), then redeploy."}
+          </p>
+          <p className="text-quiet">
+            Name the repo in the task with a GitHub link or &quot;repo: owner/name&quot;. Default repo:{" "}
+            {process.env.CURSOR_DEFAULT_REPO ?? "none set (CURSOR_DEFAULT_REPO)"}.
+          </p>
+        </section>
+      )}
+
+      {isOwner && a.adapter !== "cursor" && (
         <section className="flex flex-col gap-3 rounded-2xl bg-card p-4">
           <h2 className="text-[15px] font-semibold">Connection key</h2>
           <p className="text-sm text-quiet">
@@ -73,7 +89,15 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
               used {key.last_used_at ? relative(key.last_used_at) : "never"}.
             </p>
           )}
-          <KeyMaker agentId={a.id} agentName={a.name} chief={a.can_route} hasKey={!!key} action={createAgentKey} />
+          <KeyMaker
+            agentId={a.id}
+            agentName={a.name}
+            chief={a.can_route}
+            scheduled={a.adapter === "browser_queue"}
+            forGithub={a.adapter === "claude_code"}
+            hasKey={!!key}
+            action={createAgentKey}
+          />
           {key && (
             <form action={revokeAgentKey}>
               <input type="hidden" name="agentId" value={a.id} />
@@ -85,7 +109,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
         </section>
       )}
 
-      {isOwner && (
+      {isOwner && a.adapter !== "cursor" && a.adapter !== "browser_queue" && (
         <section className="flex flex-col gap-3 rounded-2xl bg-card p-4">
           <h2 className="text-[15px] font-semibold">Wake hook</h2>
           <p className="text-sm text-quiet">

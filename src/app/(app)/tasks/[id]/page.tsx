@@ -17,6 +17,11 @@ const eventTone: Record<HubEvent["type"], string> = {
 export default async function TaskThread({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
+  // If a Cursor run is attached and still open, check on it (backup for a missed callback).
+  try {
+    const { syncCursorTask } = await import("@/lib/cursor");
+    await syncCursorTask(id);
+  } catch {}
   const [{ data: task }, { data: events }, { data: pending }] = await Promise.all([
     supabase.from("tasks").select("*, agents(name)").eq("id", id).maybeSingle(),
     supabase.from("events").select("*").eq("task_id", id).order("created_at"),
