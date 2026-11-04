@@ -14,7 +14,6 @@ insert into public.agents (name, role, adapter, tier, visibility, status, sort_o
   ('Millie',      'Multifamily',                      'xai',           'full',   'owner', 'idle',  14),
   ('Franky',      'Investments lead',                 'xai',           'full',   'owner', 'idle',  20),
   ('Ollie',       'Options trading',                  'xai',           'full',   'owner', 'idle',  21),
-  ('Koby',        'Crypto trading',                   'xai',           'full',   'owner', 'idle',  22),
   ('Cursor',      'Cloud coding agent',               'cursor',        'full',   'team',  'setup', 30),
   ('Claude Code', 'Coding agent (Agent SDK worker)',  'claude_code',   'full',   'team',  'setup', 31),
   ('Polar',       'Browser automation on the Mac',    'browser_queue', 'bridge', 'team',  'setup', 40),

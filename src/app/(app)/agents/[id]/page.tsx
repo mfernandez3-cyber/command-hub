@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createAgentKey, removeWakeHook, revokeAgentKey, saveWakeHook, testWakeHook } from "@/app/actions";
+import { createAgentKey, removeAgent, removeWakeHook, revokeAgentKey, saveWakeHook, testWakeHook } from "@/app/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WakeHookForm } from "@/components/wake-hook-form";
 import { AgentStatusPill, BackLink, Face, btn, relative } from "@/components/ui";
@@ -144,6 +144,22 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
             </div>
           )}
         </Panel>
+      )}
+
+      {isOwner && !a.can_route && (
+        <details className="group px-1">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-[14px] font-medium text-ink-3 hover:text-stop">
+            Remove {a.name} from the team
+          </summary>
+          <form action={removeAgent} className="surface mt-2 flex flex-col gap-3 p-5">
+            <input type="hidden" name="agentId" value={a.id} />
+            <p className="text-[14px] leading-snug text-ink-2">
+              {a.name} disappears from your team and its key and wake-up stop working. Its open tasks stay, unassigned, so you
+              can hand them to someone else.
+            </p>
+            <button className={`${btn.danger} w-full`}>Remove {a.name}</button>
+          </form>
+        </details>
       )}
     </div>
   );

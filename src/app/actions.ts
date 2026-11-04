@@ -258,6 +258,29 @@ export async function removeWakeHook(formData: FormData) {
   revalidatePath(`/agents/${agentId}`);
 }
 
+/** Owner only: takes an agent off the team. Its open tasks become unassigned so nothing is lost. */
+export async function removeAgent(formData: FormData) {
+  const { supabase, name } = await requireOwner();
+  const agentId = String(formData.get("agentId"));
+  const { data: agent } = await supabase.from("agents").select("name, can_route").eq("id", agentId).maybeSingle();
+  if (!agent || agent.can_route) return; // never remove the chief of staff by accident
+  const { data: open } = await supabase
+    .from("tasks")
+    .select("id")
+    .eq("agent_id", agentId)
+    .in("status", ["queued", "running", "needs_you"]);
+  await supabase.from("tasks").update({ agent_id: null }).eq("agent_id", agentId);
+  if (open?.length) {
+    await supabase.from("events").insert(
+      open.map((t) => ({ task_id: t.id, author: name, type: "status", body: `${agent.name} was removed from the team. This task is unassigned.` })),
+    );
+  }
+  await supabase.from("agents").delete().eq("id", agentId);
+  revalidatePath("/agents");
+  revalidatePath("/");
+  redirect("/agents");
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();

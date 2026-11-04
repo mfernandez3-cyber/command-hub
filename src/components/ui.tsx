@@ -13,7 +13,6 @@ const AGENT_HUES: Record<string, string> = {
   millie: "#a0522d",
   franky: "#0f7c86",
   ollie: "#7a8f1f",
-  koby: "#b8860b",
   cursor: "#2b3a40",
   "claude code": "#c15f3c",
   polar: "#3d8fb0",
