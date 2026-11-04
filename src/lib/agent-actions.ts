@@ -1,6 +1,8 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { after } from "next/server";
 import { OPEN_STATUSES, canTouchTask, visibleTaskIds, type DoorAgent } from "@/lib/agent-door";
+import { wakeAgent } from "@/lib/wake";
 
 export class DoorError extends Error {
   constructor(
@@ -127,6 +129,7 @@ export async function assignTask(agent: DoorAgent, taskId: string, input: Record
   const note = typeof input.note === "string" && input.note.trim() ? ` Note: ${input.note.trim().slice(0, 1000)}` : "";
   await db.from("events").insert({ task_id: taskId, author: agent.name, type: "status", body: `Handed to ${target.name}.${note}` });
   await Promise.all([touchAgentStatus(task.agent_id), touchAgentStatus(target.id)]);
+  if (target.id !== agent.id) after(() => wakeAgent(target.id, "handed_to_you", taskId, input.note ? String(input.note) : undefined));
   return { ok: true, assigned_to: target.name };
 }
 
@@ -181,6 +184,7 @@ export async function newTask(agent: DoorAgent, input: Record<string, unknown>) 
     { task_id: data.id, author: agent.name, type: "message", body: instruction },
     { task_id: data.id, author: "system", type: "status", body: `Assigned to ${agentName}.` },
   ]);
+  if (agentId !== agent.id) after(() => wakeAgent(agentId, "new_task", data.id));
   return { ok: true, task_id: data.id, assigned_to: agentName };
 }
 

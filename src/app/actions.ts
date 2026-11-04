@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { wakeAgent } from "@/lib/wake";
 import type { TaskStatus } from "@/lib/types";
 
 async function me() {
@@ -62,9 +64,10 @@ export async function createTask(formData: FormData) {
       task_id: task.id,
       author: "system",
       type: "status",
-      body: agent ? `Assigned to ${agent.name}. Waiting for it to pick up.` : "No agent assigned yet.",
+      body: agent ? `Assigned to ${agent.name}.` : "No agent assigned yet.",
     },
   ]);
+  if (agent) after(() => wakeAgent(agent.id, "new_task", task.id));
 
   revalidatePath("/");
   redirect(`/tasks/${task.id}`);
@@ -76,6 +79,10 @@ export async function replyToTask(formData: FormData) {
   if (!body) return;
   const { supabase, name } = await me();
   await supabase.from("events").insert({ task_id: taskId, author: name, type: "message", body });
+  const { data: task } = await supabase.from("tasks").select("agent_id, status").eq("id", taskId).maybeSingle();
+  if (task?.agent_id && ["queued", "running", "needs_you"].includes(task.status)) {
+    after(() => wakeAgent(task.agent_id, "new_reply", taskId, body));
+  }
   revalidatePath(`/tasks/${taskId}`);
 }
 
@@ -128,6 +135,15 @@ export async function decideApproval(formData: FormData) {
     .update({ status: decision, decided_by: profile.id, decided_at: new Date().toISOString() })
     .eq("id", id)
     .eq("status", "pending");
+  const { data: approval } = await supabase
+    .from("approvals")
+    .select("task_id, summary, tasks(agent_id)")
+    .eq("id", id)
+    .maybeSingle();
+  const agentId = (approval?.tasks as unknown as { agent_id: string | null } | null)?.agent_id;
+  if (approval && agentId) {
+    after(() => wakeAgent(agentId, "approval_decided", approval.task_id, `${decision}: ${approval.summary}`));
+  }
   revalidatePath("/approvals");
   revalidatePath("/tasks");
   revalidatePath("/");
@@ -181,6 +197,64 @@ export async function revokeAgentKey(formData: FormData) {
   const { supabase, profile } = await me();
   if (profile.role !== "owner") return;
   await supabase.from("agent_keys").delete().eq("agent_id", agentId);
+  revalidatePath(`/agents/${agentId}`);
+}
+
+async function requireOwner() {
+  const ctx = await me();
+  if (ctx.profile.role !== "owner") throw new Error("Only the owner can change agent connections.");
+  return ctx;
+}
+
+/** Owner only: saves the web address and secret that wake an agent (for example a Grok Bot routine webhook). */
+export async function saveWakeHook(
+  _prev: { ok?: boolean; error?: string } | null,
+  formData: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  await requireOwner();
+  const agentId = String(formData.get("agentId"));
+  const url = String(formData.get("url") ?? "").trim();
+  let secret = String(formData.get("secret") ?? "").trim();
+  if (secret.toLowerCase().startsWith("authorization:")) secret = secret.slice(14).trim();
+  if (secret.toLowerCase().startsWith("bearer ")) secret = secret.slice(7).trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { error: "That web address doesn't look right. It should start with https://" };
+  }
+  if (parsed.protocol !== "https:" || ["localhost", "127.0.0.1"].includes(parsed.hostname))
+    return { error: "The web address must start with https://" };
+  if (secret.length < 8) return { error: "Paste the key from the routine's Webhook section." };
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const { error } = await createAdminClient()
+    .from("agent_webhooks")
+    .upsert({
+      agent_id: agentId,
+      url,
+      secret,
+      secret_hint: secret.slice(0, 5) + "..." + secret.slice(-4),
+      enabled: true,
+      last_status: null,
+      last_error: null,
+    });
+  if (error) return { error: "Could not save. Has the 0004 database update been run?" };
+  revalidatePath(`/agents/${agentId}`);
+  return { ok: true };
+}
+
+export async function testWakeHook(formData: FormData) {
+  await requireOwner();
+  const agentId = String(formData.get("agentId"));
+  await wakeAgent(agentId, "test");
+  revalidatePath(`/agents/${agentId}`);
+}
+
+export async function removeWakeHook(formData: FormData) {
+  await requireOwner();
+  const agentId = String(formData.get("agentId"));
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  await createAdminClient().from("agent_webhooks").delete().eq("agent_id", agentId);
   revalidatePath(`/agents/${agentId}`);
 }
 
