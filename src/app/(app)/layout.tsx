@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("id, email").eq("id", user.id).maybeSingle();
   if (!profile) redirect("/login?error=not-allowed");
 
   const { count } = await supabase
@@ -19,10 +19,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq("status", "pending");
 
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh overflow-x-clip">
       <LiveRefresh />
-      <main className="mx-auto max-w-xl px-5 pb-32 pt-[max(env(safe-area-inset-top),28px)]">{children}</main>
-      <TabBar pending={count ?? 0} />
+      <TabBar pending={count ?? 0} who={profile.email} />
+      <main className="mx-auto max-w-2xl px-5 pb-36 pt-[max(env(safe-area-inset-top),24px)] md:ml-60 md:max-w-none md:px-10 md:pb-16 md:pt-10">
+        <div className="mx-auto min-w-0 max-w-3xl">{children}</div>
+      </main>
     </div>
   );
 }

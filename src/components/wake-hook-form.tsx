@@ -25,7 +25,7 @@ export function WakeHookForm({
         Key
         <input name="secret" required type="password" autoComplete="off" className={field} />
       </label>
-      <button disabled={pending} className="h-11 rounded-full bg-ink text-sm font-semibold text-white disabled:opacity-60">
+      <button disabled={pending} className="h-11 rounded-full bg-press text-sm font-semibold text-press-ink disabled:opacity-60">
         {pending ? "Saving..." : hasHook ? "Replace wake hook" : "Save wake hook"}
       </button>
       {state?.ok && (

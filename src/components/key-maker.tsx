@@ -44,7 +44,7 @@ export function KeyMaker({
           {!forGithub && <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-quiet">Setup message (paste this whole thing to {agentName})</span>
             <textarea readOnly value={setup} rows={6} className="rounded bg-card p-2 font-mono text-xs" />
-            <button type="button" onClick={() => copy(setup, "setup")} className="h-11 rounded-full bg-accent text-sm font-semibold text-white">
+            <button type="button" onClick={() => copy(setup, "setup")} className="h-11 rounded-full bg-press text-sm font-semibold text-press-ink">
               {copied === "setup" ? "Copied" : "Copy setup message"}
             </button>
           </div>}
@@ -68,7 +68,7 @@ export function KeyMaker({
           <input type="hidden" name="agentId" value={agentId} />
           <button
             disabled={pending}
-            className="h-11 w-full rounded-full bg-ink text-sm font-semibold text-white disabled:opacity-60"
+            className="h-11 w-full rounded-full bg-press text-sm font-semibold text-press-ink disabled:opacity-60"
           >
             {pending ? "Making key..." : hasKey ? "Replace key (old one stops working)" : "Create key"}
           </button>

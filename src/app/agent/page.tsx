@@ -24,7 +24,7 @@ export default async function AgentDesk({ searchParams }: { searchParams: Promis
   const act = (taskId: string, action: string) =>
     `/api/agent/tasks/${taskId}/${action}?back=1&key=${encodeURIComponent(key)}`;
   const field = "w-full rounded border border-line bg-card p-2 text-sm";
-  const btn = "rounded bg-ink px-3 py-2 text-sm font-semibold text-white";
+  const btn = "rounded-full bg-press px-4 py-2 text-sm font-semibold text-press-ink";
 
   return (
     <main className="mx-auto max-w-2xl p-6 text-[15px]">

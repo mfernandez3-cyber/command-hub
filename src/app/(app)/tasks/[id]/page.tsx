@@ -2,17 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { replyToTask, requestApproval, setTaskStatus } from "@/app/actions";
-import { TaskStatusPill, timeShort } from "@/components/ui";
+import { BackLink, Face, TaskStatusPill, btn, dayLabel, field, timeShort } from "@/components/ui";
 import { LiveRefresh } from "@/components/live-refresh";
 import type { HubEvent, Task } from "@/lib/types";
-
-const eventTone: Record<HubEvent["type"], string> = {
-  message: "",
-  step: "text-quiet",
-  output: "",
-  error: "text-bad",
-  status: "text-quiet",
-};
 
 export default async function TaskThread({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,76 +14,147 @@ export default async function TaskThread({ params }: { params: Promise<{ id: str
     const { syncCursorTask } = await import("@/lib/cursor");
     await syncCursorTask(id);
   } catch {}
-  const [{ data: task }, { data: events }, { data: pending }] = await Promise.all([
+  const [{ data: task }, { data: events }, { data: pending }, { data: agents }] = await Promise.all([
     supabase.from("tasks").select("*, agents(name)").eq("id", id).maybeSingle(),
     supabase.from("events").select("*").eq("task_id", id).order("created_at"),
     supabase.from("approvals").select("id, summary").eq("task_id", id).eq("status", "pending"),
+    supabase.from("agents").select("name"),
   ]);
   if (!task) notFound();
   const t = task as Task;
-
+  const agentNames = new Set((agents ?? []).map((a) => a.name.toLowerCase()));
+  const isAgent = (n: string) => agentNames.has(n.toLowerCase());
   const open = ["queued", "running", "needs_you"].includes(t.status);
+  const owner = t.agents?.name ?? "Unassigned";
+
+  const list = (events ?? []) as HubEvent[];
+  let lastDay = "";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <LiveRefresh taskId={id} />
-      <div className="flex flex-col gap-1.5">
-        <Link href="/tasks" className="text-sm font-medium text-accent">
-          ‹ Tasks
-        </Link>
-        <h1 className="text-xl font-bold leading-tight">{t.title}</h1>
-        <div className="flex flex-wrap items-center gap-2 text-[13px] text-quiet">
-          <TaskStatusPill status={t.status} />
-          <span>{t.agents?.name ?? "Unassigned"}</span>
-          <span>· cost so far ${Number(t.cost_usd).toFixed(2)}</span>
+      <div>
+        <BackLink href="/tasks">Tasks</BackLink>
+        <div className="mt-2 flex items-start gap-3.5">
+          <Face name={owner} size={46} status={t.status === "running" ? "working" : t.status === "needs_you" ? "needs_you" : null} />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[24px] font-bold leading-tight md:text-[28px]">{t.title}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink-2">
+              <TaskStatusPill status={t.status} />
+              <span>Assigned to {owner}</span>
+              {Number(t.cost_usd) > 0 && <span>Cost ${Number(t.cost_usd).toFixed(2)}</span>}
+            </div>
+          </div>
         </div>
       </div>
 
-      <ol className="flex flex-col gap-3">
-        {(events as HubEvent[] | null)?.map((e) => (
-          <li key={e.id} className="flex gap-2.5">
-            <span className="w-14 shrink-0 pt-0.5 font-mono text-xs text-quiet">{timeShort(e.created_at)}</span>
-            <div className={`flex-1 text-sm ${eventTone[e.type]}`}>
-              {e.author !== "system" && <strong className="text-ink">{e.author} </strong>}
-              <span className="whitespace-pre-wrap">{e.body}</span>
-              {e.link && (
-                <a href={e.link} target="_blank" rel="noreferrer" className="ml-1 text-accent underline">
-                  Open
-                </a>
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
-
       {(pending?.length ?? 0) > 0 && (
-        <Link
-          href="/approvals"
-          className="rounded-2xl border border-warn-line bg-warn-soft px-3.5 py-3 text-sm font-semibold text-warn-ink"
-        >
-          {pending!.length} approval{pending!.length > 1 ? "s" : ""} waiting: {pending![0].summary}
+        <Link href="/approvals" className="flex items-center gap-3 rounded-2xl border border-amber/60 bg-amber-soft px-4 py-3.5">
+          <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber" />
+          <span className="min-w-0 flex-1 text-[15px]">
+            <span className="font-semibold">Waiting on your OK: </span>
+            {pending![0].summary}
+          </span>
+          <span className="text-[13px] font-semibold text-amber-ink">Review</span>
         </Link>
       )}
 
-      {open && (
-        <div className="flex flex-wrap gap-2">
-          {t.status !== "running" && (
-            <StatusButton taskId={id} status="running" label="Mark running" />
-          )}
-          <StatusButton taskId={id} status="done" label="Mark done" primary />
-          <StatusButton taskId={id} status="cancelled" label="Cancel" />
-        </div>
-      )}
-      {!open && <StatusButton taskId={id} status="queued" label="Reopen" />}
+      <ol className="flex flex-col gap-3.5" aria-label="Task history">
+        {list.map((e) => {
+          const day = dayLabel(e.created_at);
+          const divider =
+            day !== lastDay ? (
+              <li key={`d-${e.id}`} className="my-1 text-center text-[12px] font-medium text-ink-3">
+                {day}
+              </li>
+            ) : null;
+          lastDay = day;
+
+          if (e.type === "status" || e.author === "system") {
+            return [
+              divider,
+              <li key={e.id} className="flex items-center gap-3 px-2 text-[13px] text-ink-3">
+                <span className="h-px flex-1 bg-line-soft" />
+                <span className="max-w-[80%] text-center">
+                  {e.author !== "system" && <span className="font-medium text-ink-2">{e.author} </span>}
+                  {e.body}
+                  <span className="ml-1.5">{timeShort(e.created_at)}</span>
+                </span>
+                <span className="h-px flex-1 bg-line-soft" />
+              </li>,
+            ];
+          }
+
+          if (!isAgent(e.author)) {
+            return [
+              divider,
+              <li key={e.id} className="flex flex-col items-end gap-1 pl-10">
+                <div className="max-w-full whitespace-pre-wrap rounded-[20px] rounded-br-md bg-press px-4 py-2.5 text-[15px] leading-snug text-press-ink">
+                  {e.body}
+                </div>
+                <span className="pr-1 text-[12px] text-ink-3">{timeShort(e.created_at)}</span>
+              </li>,
+            ];
+          }
+
+          const bubble =
+            e.type === "output"
+              ? "border border-go/40 bg-go-soft"
+              : e.type === "error"
+                ? "border border-stop/40 bg-stop-soft"
+                : e.type === "step"
+                  ? "bg-sunken"
+                  : "bg-raised shadow-[var(--shadow)]";
+          return [
+            divider,
+            <li key={e.id} className="flex gap-2.5 pr-8">
+              <Face name={e.author} size={30} />
+              <div className="flex min-w-0 flex-col gap-1">
+                <div className={`whitespace-pre-wrap rounded-[20px] rounded-tl-md px-4 py-2.5 text-[15px] leading-snug ${bubble}`}>
+                  {e.body}
+                  {e.link && (
+                    <a href={e.link} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-1.5 text-[14px] font-semibold text-live underline-offset-2 hover:underline">
+                      {/github\.com\/.+\/pull\//.test(e.link) ? "Open pull request" : "Open link"}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M7 17 17 7M9 7h8v8" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+                <span className="pl-1 text-[12px] text-ink-3">
+                  {e.author}, {timeShort(e.created_at)}
+                </span>
+              </div>
+            </li>,
+          ];
+        })}
+      </ol>
+
+      <div className="flex flex-wrap gap-2">
+        {open ? (
+          <>
+            <StatusButton taskId={id} status="done" label="Mark done" primary />
+            {t.status !== "running" && <StatusButton taskId={id} status="running" label="Mark working" />}
+            <StatusButton taskId={id} status="cancelled" label="Cancel task" danger />
+          </>
+        ) : (
+          <StatusButton taskId={id} status="queued" label="Reopen task" />
+        )}
+      </div>
 
       {open && (
-        <details className="rounded-2xl bg-card px-3.5 py-3">
-          <summary className="cursor-pointer text-sm font-semibold">Request an approval</summary>
-          <form action={requestApproval} className="mt-3 flex flex-col gap-2.5">
+        <details className="surface group px-4 py-1">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-[15px] font-semibold">
+            Hold something for your approval
+            <svg className="transition-transform group-open:rotate-180" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </summary>
+          <form action={requestApproval} className="flex flex-col gap-3 pb-4 pt-1">
             <input type="hidden" name="taskId" value={id} />
-            <label className="flex flex-col gap-1 text-[13px] font-medium text-quiet">
-              Type
-              <select name="actionType" className="h-11 rounded-xl border border-line bg-card px-3 text-[15px] text-ink">
+            <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink-2">
+              What kind of action
+              <select name="actionType" className={field}>
                 <option value="post">Public post</option>
                 <option value="send">Send a message or email</option>
                 <option value="spend">Spend money</option>
@@ -99,38 +162,38 @@ export default async function TaskThread({ params }: { params: Promise<{ id: str
                 <option value="delete">Delete something</option>
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-[13px] font-medium text-quiet">
+            <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink-2">
               What needs approving
-              <input name="summary" required className="h-11 rounded-xl border border-line px-3 text-[15px] text-ink" />
+              <input name="summary" required className={field} />
             </label>
-            <label className="flex flex-col gap-1 text-[13px] font-medium text-quiet">
-              Amount in dollars (optional)
-              <input name="amount" inputMode="decimal" className="h-11 rounded-xl border border-line px-3 text-[15px] text-ink" />
+            <label className="flex flex-col gap-1.5 text-[13px] font-medium text-ink-2">
+              Amount in dollars, if any
+              <input name="amount" inputMode="decimal" className={field} />
             </label>
-            <button className="h-11 rounded-full bg-ink text-sm font-semibold text-white">Send to Approvals</button>
+            <button className={btn.primary}>Add to Approvals</button>
           </form>
         </details>
       )}
 
       <form
         action={replyToTask}
-        className="sticky bottom-28 flex items-center gap-2 rounded-full border border-line bg-card p-1.5 pl-4"
+        className="sticky bottom-[92px] z-10 flex items-center gap-2 rounded-full border border-line bg-raised/95 p-1.5 pl-5 shadow-[var(--shadow)] backdrop-blur md:bottom-6"
       >
         <input type="hidden" name="taskId" value={id} />
         <label htmlFor="reply" className="sr-only">
-          Reply to this task
+          Reply to {owner}
         </label>
         <input
           id="reply"
           name="body"
           required
           autoComplete="off"
-          placeholder="Reply, redirect, or add context"
-          className="h-10 flex-1 bg-transparent text-[15px] outline-none"
+          placeholder={open ? `Reply to ${owner}` : "Add a note"}
+          className="h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-ink-3"
         />
-        <button aria-label="Send reply" className="flex h-10 w-10 items-center justify-center rounded-full bg-ink">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M5 12h14M13 6l6 6-6 6" />
+        <button aria-label="Send reply" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-press text-press-ink transition-transform active:scale-95">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 19V5M6 11l6-6 6 6" />
           </svg>
         </button>
       </form>
@@ -143,23 +206,19 @@ function StatusButton({
   status,
   label,
   primary = false,
+  danger = false,
 }: {
   taskId: string;
   status: string;
   label: string;
   primary?: boolean;
+  danger?: boolean;
 }) {
   return (
     <form action={setTaskStatus}>
       <input type="hidden" name="taskId" value={taskId} />
       <input type="hidden" name="status" value={status} />
-      <button
-        className={`h-11 rounded-full px-4 text-sm font-semibold ${
-          primary ? "bg-accent text-white" : "border border-line bg-card text-ink"
-        }`}
-      >
-        {label}
-      </button>
+      <button className={primary ? btn.primary : danger ? btn.danger : btn.secondary}>{label}</button>
     </form>
   );
 }

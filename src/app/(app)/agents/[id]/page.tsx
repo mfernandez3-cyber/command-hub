@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAgentKey, removeWakeHook, revokeAgentKey, saveWakeHook, testWakeHook } from "@/app/actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WakeHookForm } from "@/components/wake-hook-form";
-import { AgentStatusPill, Avatar, relative } from "@/components/ui";
+import { AgentStatusPill, BackLink, Face, btn, relative } from "@/components/ui";
 import { KeyMaker } from "@/components/key-maker";
 import type { Agent } from "@/lib/types";
 
@@ -35,58 +35,57 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
     : null;
 
   return (
-    <div className="flex flex-col gap-5">
-      <Link href="/agents" className="text-sm font-medium text-accent">
-        ‹ Agents
-      </Link>
-      <div className="flex items-center gap-3">
-        <Avatar name={a.name} dark={a.can_route} />
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{a.name}</h1>
-          <p className="text-sm text-quiet">
-            {a.role}
-            {a.can_route ? " · chief of staff" : ""}
-            {a.visibility === "owner" ? " · private to you" : ""}
-          </p>
+    <div className="flex flex-col gap-6">
+      <div>
+        <BackLink href="/agents">Team</BackLink>
+        <div className="mt-3 flex items-center gap-4">
+          <Face name={a.name} status={a.status} size={64} />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[30px] font-bold leading-none">{a.name}</h1>
+            <p className="mt-1.5 text-[15px] text-ink-2">
+              {a.role}
+              {a.can_route && !/chief of staff/i.test(a.role) ? ", chief of staff" : ""}
+              {a.visibility === "owner" ? ", private to you" : ""}
+            </p>
+          </div>
+          <AgentStatusPill status={a.status} />
         </div>
-        <AgentStatusPill status={a.status} />
       </div>
 
-      <Link href={`/tasks?agent=${a.id}`} className="flex justify-between rounded-2xl bg-card px-4 py-3 text-[15px]">
-        <span>Open tasks</span>
-        <span className="font-semibold">{open ?? 0} ›</span>
-      </Link>
-
-      <p className="text-sm text-quiet">
-        Last checked in: {a.last_seen_at ? relative(a.last_seen_at) : "never"}
-      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <Link href={`/tasks?agent=${a.id}`} className="surface flex flex-col gap-1 p-4">
+          <span className="display text-[28px] font-bold leading-none">{open ?? 0}</span>
+          <span className="text-[14px] text-ink-2">Open tasks</span>
+        </Link>
+        <div className="surface flex flex-col gap-1 p-4">
+          <span className="display text-[20px] font-semibold leading-tight">{a.last_seen_at ? relative(a.last_seen_at) : "Never"}</span>
+          <span className="text-[14px] text-ink-2">Last checked in</span>
+        </div>
+      </div>
 
       {isOwner && a.adapter === "cursor" && (
-        <section className="flex flex-col gap-2 rounded-2xl bg-card p-4 text-sm">
-          <h2 className="text-[15px] font-semibold">Connection</h2>
-          <p className={cursorOn ? "text-good" : "text-quiet"}>
+        <Panel title="Connection">
+          <p className={`text-[15px] ${cursorOn ? "text-go" : "text-ink-2"}`}>
             {cursorOn
-              ? "Connected. Tasks assigned to Cursor start a cloud agent right away and report back with a pull request."
-              : "Not connected yet. Add CURSOR_API_KEY in Vercel (Settings > Environment Variables), then redeploy."}
+              ? "Connected. Tasks for Cursor start a cloud agent right away and come back with a pull request."
+              : "Not connected yet. Add CURSOR_API_KEY in Vercel under Settings, Environment Variables, then redeploy."}
           </p>
-          <p className="text-quiet">
+          <p className="text-[14px] text-ink-3">
             Name the repo in the task with a GitHub link or &quot;repo: owner/name&quot;. Default repo:{" "}
-            {process.env.CURSOR_DEFAULT_REPO ?? "none set (CURSOR_DEFAULT_REPO)"}.
+            {process.env.CURSOR_DEFAULT_REPO ?? "none set"}.
           </p>
-        </section>
+        </Panel>
       )}
 
       {isOwner && a.adapter !== "cursor" && (
-        <section className="flex flex-col gap-3 rounded-2xl bg-card p-4">
-          <h2 className="text-[15px] font-semibold">Connection key</h2>
-          <p className="text-sm text-quiet">
-            The key lets {a.name} check the Hub for tasks, post updates, and ask you for approvals. It can never approve
-            anything itself.
-          </p>
+        <Panel
+          title="Connection key"
+          note={`Lets ${a.name} pick up tasks, post updates, and ask you for approvals. It can never approve anything itself.`}
+        >
           {key && (
-            <p className="text-sm">
-              Current key <code className="font-mono text-xs">{key.key_hint}</code>, made {relative(key.created_at)}, last
-              used {key.last_used_at ? relative(key.last_used_at) : "never"}.
+            <p className="rounded-xl bg-sunken px-3.5 py-2.5 text-[14px]">
+              Key ending <span className="font-semibold">{key.key_hint.slice(-4)}</span>, made {relative(key.created_at)}, last used{" "}
+              {key.last_used_at ? relative(key.last_used_at) : "never"}.
             </p>
           )}
           <KeyMaker
@@ -101,51 +100,63 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
           {key && (
             <form action={revokeAgentKey}>
               <input type="hidden" name="agentId" value={a.id} />
-              <button className="h-10 w-full rounded-full border border-line text-sm font-semibold text-bad">
-                Turn off this key
-              </button>
+              <button className={`${btn.danger} w-full`}>Turn off this key</button>
             </form>
           )}
-        </section>
+        </Panel>
       )}
 
       {isOwner && a.adapter !== "cursor" && a.adapter !== "browser_queue" && (
-        <section className="flex flex-col gap-3 rounded-2xl bg-card p-4">
-          <h2 className="text-[15px] font-semibold">Wake hook</h2>
-          <p className="text-sm text-quiet">
-            Starts {a.name} the moment there&apos;s something to do: a new task, a handoff, your reply, or an approval
-            decision. Without it, {a.name} only sees work on its next check-in.
-          </p>
+        <Panel
+          title="Wake-up"
+          note={`Starts ${a.name} the moment there's something to do: a new task, a handoff, your reply, or an approval decision.`}
+        >
           {hook && (
-            <div className="flex flex-col gap-1 rounded-xl bg-ground p-3 text-sm">
-              <span className="break-all">
-                Sends to <code className="font-mono text-xs">{new URL(hook.url).host}</code> with key{" "}
-                <code className="font-mono text-xs">{hook.secret_hint}</code>
-              </span>
-              <span className={hook.last_error ? "text-bad" : "text-quiet"}>
-                {hook.last_sent_at
-                  ? hook.last_error
-                    ? `Last try ${relative(hook.last_sent_at)} failed (${hook.last_status || "no response"}): ${hook.last_error}`
-                    : `Last wake ${relative(hook.last_sent_at)} worked.`
-                  : "Not used yet."}
-              </span>
-            </div>
+            <p className={`rounded-xl px-3.5 py-2.5 text-[14px] ${hook.last_error ? "bg-stop-soft text-stop" : "bg-go-soft text-go"}`}>
+              {hook.last_sent_at
+                ? hook.last_error
+                  ? `Last try ${relative(hook.last_sent_at)} failed (${hook.last_status || "no response"}): ${hook.last_error}`
+                  : `Connected to ${new URL(hook.url).host}. Last wake ${relative(hook.last_sent_at)} worked.`
+                : `Connected to ${new URL(hook.url).host}. Not used yet.`}
+            </p>
           )}
-          <WakeHookForm agentId={a.id} hasHook={!!hook} action={saveWakeHook} />
+          <details className="group">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-[15px] font-medium text-ink-2">
+              {hook ? "Replace connection" : "Set up connection"}
+              <svg className="transition-transform group-open:rotate-180" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </summary>
+            <div className="pt-2">
+              <WakeHookForm agentId={a.id} hasHook={!!hook} action={saveWakeHook} />
+            </div>
+          </details>
           {hook && (
             <div className="grid grid-cols-2 gap-2">
               <form action={testWakeHook}>
                 <input type="hidden" name="agentId" value={a.id} />
-                <button className="h-11 w-full rounded-full border border-line text-sm font-semibold">Send test</button>
+                <button className={`${btn.secondary} w-full`}>Send test</button>
               </form>
               <form action={removeWakeHook}>
                 <input type="hidden" name="agentId" value={a.id} />
-                <button className="h-11 w-full rounded-full border border-line text-sm font-semibold text-bad">Remove</button>
+                <button className={`${btn.danger} w-full`}>Remove</button>
               </form>
             </div>
           )}
-        </section>
+        </Panel>
       )}
     </div>
+  );
+}
+
+function Panel({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  return (
+    <section className="surface flex flex-col gap-3.5 p-5">
+      <div>
+        <h2 className="text-[18px] font-semibold">{title}</h2>
+        {note && <p className="mt-1 text-[14px] leading-snug text-ink-2">{note}</p>}
+      </div>
+      {children}
+    </section>
   );
 }

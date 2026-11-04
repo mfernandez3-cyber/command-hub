@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { AgentStatusPill, Avatar, SectionLabel } from "@/components/ui";
-import type { Agent } from "@/lib/types";
+import { AgentStatusPill, Face, PageTitle, SectionTitle, relative } from "@/components/ui";
+import type { Agent, AgentStatus } from "@/lib/types";
 
-const groups: { key: string; label: string; match: (a: Agent) => boolean }[] = [
-  { key: "grok", label: "Grok team · full control", match: (a) => a.adapter === "xai" },
-  { key: "code", label: "Coding · full control", match: (a) => a.adapter === "cursor" || a.adapter === "claude_code" },
-  { key: "bridge", label: "Browser bridge · via the Mac", match: (a) => a.tier === "bridge" },
+type Row = Agent & { last_seen_at: string | null; can_route: boolean };
+
+const groups: { key: string; label: string; note: string; match: (a: Row) => boolean }[] = [
+  { key: "lead", label: "Chief of staff", note: "Routes your instructions to the right agent.", match: (a) => a.can_route },
+  { key: "grok", label: "Grok team", note: "Woken the moment a task lands.", match: (a) => a.adapter === "xai" && !a.can_route },
+  { key: "code", label: "Coding agents", note: "Work in your GitHub repos and open pull requests.", match: (a) => a.adapter === "cursor" || a.adapter === "claude_code" },
+  { key: "mac", label: "On your Mac", note: "Check in every 15 minutes during the day.", match: (a) => a.tier === "bridge" },
 ];
 
-export default async function AgentsPage() {
+export default async function TeamPage() {
   const supabase = await createClient();
   const [{ data: agents }, { data: active }] = await Promise.all([
     supabase.from("agents").select("*").order("sort_order"),
@@ -20,47 +23,59 @@ export default async function AgentsPage() {
       .order("updated_at", { ascending: false }),
   ]);
 
-  const current = new Map<string, { title: string; count: number }>();
+  const current = new Map<string, { title: string; count: number; running: boolean }>();
   for (const t of active ?? []) {
     if (!t.agent_id) continue;
     const c = current.get(t.agent_id);
-    if (c) c.count += 1;
-    else current.set(t.agent_id, { title: t.title, count: 1 });
+    if (c) {
+      c.count += 1;
+      c.running ||= t.status === "running";
+    } else current.set(t.agent_id, { title: t.title, count: 1, running: t.status === "running" });
   }
+  const rows = (agents ?? []) as Row[];
 
   return (
-    <div className="flex flex-col gap-5">
-      <h1 className="text-[30px] font-bold tracking-tight">Agents</h1>
+    <div className="flex flex-col gap-8">
+      <PageTitle sub={`${rows.length} agents. Tap one to see its work or connect it.`}>Team</PageTitle>
 
       {groups.map((g) => {
-        const list = (agents as Agent[] | null)?.filter(g.match) ?? [];
+        const list = rows.filter(g.match);
         if (list.length === 0) return null;
         return (
-          <section key={g.key} className="flex flex-col gap-1.5">
-            <SectionLabel>{g.label}</SectionLabel>
-            <ul
-              className={`flex flex-col divide-y divide-hairline rounded-2xl bg-card ${
-                g.key === "bridge" ? "border border-dashed border-[#b9bec7]" : ""
-              }`}
-            >
+          <section key={g.key} className="flex flex-col gap-3">
+            <div>
+              <SectionTitle>{g.label}</SectionTitle>
+              <p className="text-[14px] text-ink-3">{g.note}</p>
+            </div>
+            <ul className="grid gap-3 sm:grid-cols-2">
               {list.map((a) => {
                 const now = current.get(a.id);
+                const status: AgentStatus = now?.running && a.status === "idle" ? "working" : a.status;
                 return (
                   <li key={a.id}>
-                    <Link href={`/agents/${a.id}`} className="flex items-center gap-3 px-3.5 py-3">
-                      <Avatar name={a.name} dark={a.name === "Tara"} />
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="text-[15px] font-semibold">
-                          {a.name}
-                          {a.visibility === "owner" && (
-                            <span className="ml-1.5 text-xs font-normal text-quiet">private</span>
-                          )}
-                        </span>
-                        <span className="truncate text-[13px] text-quiet">
-                          {now ? `${now.title}${now.count > 1 ? ` (+${now.count - 1} more)` : ""}` : a.role}
-                        </span>
-                      </span>
-                      <AgentStatusPill status={now && a.status === "idle" ? "working" : a.status} />
+                    <Link href={`/agents/${a.id}`} className="surface flex h-full items-start gap-3.5 p-4 transition-transform active:scale-[0.99]">
+                      <Face name={a.name} status={status} size={48} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="display text-[18px] font-semibold leading-tight">{a.name}</p>
+                            <p className="truncate text-[13px] text-ink-3">
+                              {a.role}
+                              {a.visibility === "owner" ? ", private" : ""}
+                            </p>
+                          </div>
+                          <AgentStatusPill status={status} />
+                        </div>
+                        <p className="mt-2.5 line-clamp-2 text-[14px] leading-snug text-ink-2">
+                          {now
+                            ? `${now.title}${now.count > 1 ? `, plus ${now.count - 1} more` : ""}`
+                            : a.last_seen_at
+                              ? `Last checked in ${relative(a.last_seen_at)}`
+                              : status === "setup"
+                                ? "Not connected yet"
+                                : "No open tasks"}
+                        </p>
+                      </div>
                     </Link>
                   </li>
                 );
@@ -69,12 +84,6 @@ export default async function AgentsPage() {
           </section>
         );
       })}
-
-      <p className="text-[13px] text-quiet">
-        Agents marked Setup are not connected yet. Grok bots go live in Phase 2, Cursor and Claude Code in Phase 3,
-        Polar and Muse in Phase 4. Until then, tasks assigned to them wait in the queue and you can move them along by
-        hand.
-      </p>
     </div>
   );
 }

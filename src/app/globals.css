@@ -1,34 +1,157 @@
 @import "tailwindcss";
 
+/*
+  Command Hub visual system: "field office".
+  Cool sage-grey paper, deep slate-teal ink, amber only for things waiting on Manny,
+  and one color per agent so the team reads at a glance.
+*/
+
 @theme {
-  --color-ground: #f2f3f5;
-  --color-card: #ffffff;
-  --color-ink: #111418;
-  --color-quiet: #555b66;
-  --color-line: #dde0e5;
-  --color-hairline: #eceef1;
-  --color-accent: #1f49e0;
-  --color-accent-strong: #1537b0;
-  --color-accent-soft: #eef2ff;
-  --color-warn: #b23a00;
-  --color-warn-ink: #8a3300;
-  --color-warn-soft: #fff1e8;
-  --color-warn-line: #f4c9ae;
-  --color-good: #1e6b34;
-  --color-good-soft: #e9f6ec;
-  --color-bad: #b42318;
-  --color-bad-soft: #fdecea;
-  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-ground: var(--ground);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-press: var(--press);
+  --color-press-ink: var(--press-ink);
+  --color-amber: var(--amber);
+  --color-amber-ink: var(--amber-ink);
+  --color-amber-soft: var(--amber-soft);
+  --color-go: var(--go);
+  --color-go-soft: var(--go-soft);
+  --color-stop: var(--stop);
+  --color-stop-soft: var(--stop-soft);
+  --color-live: var(--live);
+  --color-live-soft: var(--live-soft);
+
+  /* Legacy names still used by the agent desk and setup forms */
+  --color-card: var(--raised);
+  --color-quiet: var(--ink-2);
+  --color-hairline: var(--line-soft);
+  --color-accent: var(--live);
+  --color-accent-soft: var(--live-soft);
+  --color-warn: var(--amber-ink);
+  --color-warn-ink: var(--amber-ink);
+  --color-warn-soft: var(--amber-soft);
+  --color-warn-line: var(--amber);
+  --color-good: var(--go);
+  --color-good-soft: var(--go-soft);
+  --color-bad: var(--stop);
+  --color-bad-soft: var(--stop-soft);
+
+  --font-sans: "Onest", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Onest", system-ui, sans-serif;
+
+  --radius-chip: 999px;
+}
+
+:root {
+  color-scheme: light;
+  --ground: #e9ece8;
+  --raised: #fbfcfa;
+  --sunken: #dfe3de;
+  --ink: #17262b;
+  --ink-2: #4f5f63;
+  --ink-3: #75848a;
+  --line: #cfd5d0;
+  --line-soft: #e2e6e1;
+  --press: #17262b;
+  --press-ink: #f4f7f4;
+  --amber: #e2a23b;
+  --amber-ink: #8a5300;
+  --amber-soft: #fbefd8;
+  --go: #1f7a4d;
+  --go-soft: #dcefe3;
+  --stop: #b3261e;
+  --stop-soft: #f8e1df;
+  --live: #2457c5;
+  --live-soft: #e1e9fa;
+  --shadow: 0 1px 0 rgb(23 38 43 / 0.06), 0 8px 24px -12px rgb(23 38 43 / 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --ground: #121a1d;
+    --raised: #1b2629;
+    --sunken: #0d1416;
+    --ink: #e7eeec;
+    --ink-2: #a9b7b6;
+    --ink-3: #82918f;
+    --line: #2d3b3e;
+    --line-soft: #233033;
+    --press: #e7eeec;
+    --press-ink: #121a1d;
+    --amber: #e9ad4c;
+    --amber-ink: #f3c27a;
+    --amber-soft: #3a2c14;
+    --go: #6fcf98;
+    --go-soft: #173226;
+    --stop: #f08a80;
+    --stop-soft: #3b1d1a;
+    --live: #8fb0ff;
+    --live-soft: #1d2a47;
+    --shadow: 0 1px 0 rgb(0 0 0 / 0.3), 0 10px 28px -14px rgb(0 0 0 / 0.6);
+  }
 }
 
 html,
 body {
-  background: var(--color-ground);
-  color: var(--color-ink);
+  background: var(--ground);
+  color: var(--ink);
 }
 
 body {
   font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1;
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+.display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.015em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--live);
+  outline-offset: 2px;
+}
+
+.surface {
+  background: var(--raised);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+
+/* The one moving thing: agents that are working breathe. */
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--ring);
+  }
+  50% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+.ring-working {
+  animation: breathe 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ring-working {
+    animation: none;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
 }

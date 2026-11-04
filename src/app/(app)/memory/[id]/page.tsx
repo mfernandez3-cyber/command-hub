@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { deleteMemory, saveMemory } from "@/app/actions";
+import { BackLink, btn, field } from "@/components/ui";
 import type { Memory } from "@/lib/types";
 
 export default async function MemoryEditor({ params }: { params: Promise<{ id: string }> }) {
@@ -16,49 +16,43 @@ export default async function MemoryEditor({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <Link href="/memory" className="text-sm font-medium text-accent">
-        ‹ Memory
-      </Link>
-      <h1 className="text-xl font-bold">{isNew ? "New note" : "Edit note"}</h1>
-      <form action={saveMemory} className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
+      <BackLink href="/memory">Memory</BackLink>
+      <form action={saveMemory} className="surface flex flex-col gap-4 p-5">
         {!isNew && <input type="hidden" name="id" value={id} />}
-        <label className="flex flex-col gap-1 text-[13px] font-medium text-quiet">
+        <label className="sr-only" htmlFor="title">
           Title
-          <input
-            name="title"
-            required
-            defaultValue={note?.title}
-            className="h-11 rounded-xl border border-line bg-card px-3 text-[15px] text-ink"
-          />
         </label>
-        <label className="flex flex-col gap-1 text-[13px] font-medium text-quiet">
+        <input
+          id="title"
+          name="title"
+          required
+          defaultValue={note?.title}
+          placeholder="Note title"
+          className="display bg-transparent text-[26px] font-bold leading-tight outline-none placeholder:text-ink-3"
+        />
+        <label className="sr-only" htmlFor="body">
           Note
-          <textarea
-            name="body"
-            required
-            rows={12}
-            defaultValue={note?.body}
-            className="rounded-xl border border-line bg-card p-3 text-[15px] leading-relaxed text-ink"
-          />
         </label>
-        <label className="flex flex-col gap-1 text-[13px] font-medium text-quiet">
+        <textarea
+          id="body"
+          name="body"
+          required
+          rows={14}
+          defaultValue={note?.body}
+          placeholder="Write what every agent should know."
+          className="resize-y bg-transparent text-[16px] leading-relaxed outline-none placeholder:text-ink-3"
+        />
+        <label className="flex flex-col gap-1.5 border-t border-line-soft pt-4 text-[13px] font-medium text-ink-2">
           Tags, separated by commas
-          <input
-            name="tags"
-            defaultValue={note?.tags.join(", ")}
-            placeholder="buy box, diana"
-            className="h-11 rounded-xl border border-line bg-card px-3 text-[15px] text-ink"
-          />
+          <input name="tags" defaultValue={note?.tags.join(", ")} placeholder="buy box, diana" className={field} />
         </label>
-        <button className="h-12 rounded-full bg-accent text-[15px] font-semibold text-white">Save</button>
+        <button className={btn.primary}>{isNew ? "Save note" : "Save changes"}</button>
       </form>
       {!isNew && (
         <form action={deleteMemory}>
           <input type="hidden" name="id" value={id} />
-          <button className="h-11 w-full rounded-full border border-line bg-card text-sm font-semibold text-bad">
-            Delete note
-          </button>
+          <button className={`${btn.danger} w-full`}>Delete note</button>
         </form>
       )}
     </div>

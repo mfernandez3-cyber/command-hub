@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Mark } from "@/components/tab-bar";
 
 function LoginForm() {
   const params = useSearchParams();
@@ -28,24 +29,30 @@ function LoginForm() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
-      <div>
-        <h1 className="text-[30px] font-bold tracking-tight">Command Hub</h1>
-        <p className="mt-1 text-sm text-quiet">Sign in with the email your account was set up with.</p>
+    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-8 px-6">
+      <div className="flex flex-col gap-5">
+        <Mark />
+        <div>
+          <h1 className="text-[36px] font-bold leading-none">Command Hub</h1>
+          <p className="mt-2.5 text-[15px] text-ink-2">One place to direct every agent on your team.</p>
+        </div>
       </div>
       {params.get("error") === "not-allowed" && (
-        <p role="alert" className="rounded-xl bg-warn-soft p-3 text-sm text-warn-ink">
-          That email is not on the team list yet. Ask Manny to add it, then sign in again.
+        <p role="alert" className="rounded-2xl bg-amber-soft p-4 text-[14px] text-amber-ink">
+          That email isn&apos;t on the team list yet. Ask Manny to add it, then sign in again.
         </p>
       )}
       {state === "sent" ? (
-        <p className="rounded-xl bg-card p-4 text-[15px]">
-          Check <strong>{email}</strong> for a sign-in link. Open it on this device.
-        </p>
+        <div className="surface p-5 text-[15px] leading-relaxed">
+          <p className="font-semibold">Check your email</p>
+          <p className="mt-1 text-ink-2">
+            We sent a sign-in link to {email}. Open it on this device to finish signing in.
+          </p>
+        </div>
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-3">
-          <label htmlFor="email" className="text-[13px] font-semibold text-quiet">
-            Email
+          <label htmlFor="email" className="text-[14px] font-medium text-ink-2">
+            Your email
           </label>
           <input
             id="email"
@@ -54,17 +61,19 @@ function LoginForm() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="h-12 rounded-xl border border-line bg-card px-3 text-base"
+            className="min-h-12 rounded-xl border border-line bg-raised px-4 text-[16px] text-ink focus:border-ink-3 focus:outline-none"
           />
           <button
             disabled={state === "sending"}
-            className="h-12 rounded-full bg-accent text-[15px] font-semibold text-white disabled:opacity-60"
+            className="min-h-12 rounded-full bg-press text-[15px] font-semibold text-press-ink transition-transform active:scale-[0.98] disabled:opacity-60"
           >
             {state === "sending" ? "Sending..." : "Email me a sign-in link"}
           </button>
           {state === "error" && (
-            <p role="alert" className="text-sm text-bad">
-              {message}
+            <p role="alert" className="text-[14px] text-stop">
+              {/rate limit/i.test(message)
+                ? "Too many sign-in emails in the last hour. Use a link already in your inbox, or try again in about an hour."
+                : message}
             </p>
           )}
         </form>
