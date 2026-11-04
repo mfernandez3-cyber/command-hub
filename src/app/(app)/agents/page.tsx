@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AgentStatusPill, Face, PageTitle, SectionTitle, relative } from "@/components/ui";
 import type { Agent, AgentStatus } from "@/lib/types";
+import { connectionCheck } from "@/lib/connections";
 
 type Row = Agent & { last_seen_at: string | null; can_route: boolean };
 
@@ -32,7 +33,8 @@ export default async function TeamPage() {
       c.running ||= t.status === "running";
     } else current.set(t.agent_id, { title: t.title, count: 1, running: t.status === "running" });
   }
-  const rows = (agents ?? []) as Row[];
+  const real = await connectionCheck();
+  const rows = ((agents ?? []) as Row[]).map((a) => ({ ...a, status: real(a) }));
 
   return (
     <div className="flex flex-col gap-8">

@@ -28,6 +28,8 @@ export async function agentForKey(key: string | null | undefined): Promise<DoorA
   await Promise.all([
     db.from("agent_keys").update({ last_used_at: now }).eq("agent_id", agent.id),
     db.from("agents").update({ last_seen_at: now }).eq("id", agent.id),
+    // First check-in means the agent is connected.
+    db.from("agents").update({ status: "idle" }).eq("id", agent.id).eq("status", "setup"),
   ]);
   return agent;
 }

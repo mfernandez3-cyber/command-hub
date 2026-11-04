@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { WakeHookForm } from "@/components/wake-hook-form";
 import { AgentStatusPill, BackLink, Face, btn, relative } from "@/components/ui";
 import { KeyMaker } from "@/components/key-maker";
+import { connectionCheck } from "@/lib/connections";
 import type { Agent } from "@/lib/types";
 
 export default async function AgentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +22,9 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
     supabase.from("tasks").select("id", { count: "exact", head: true }).eq("agent_id", id).in("status", ["queued", "running", "needs_you"]),
   ]);
   if (!agent) notFound();
-  const a = agent as Agent & { can_route: boolean; last_seen_at: string | null };
+  const real = await connectionCheck();
+  const a = { ...(agent as Agent & { can_route: boolean; last_seen_at: string | null }) };
+  a.status = real(a);
   const isOwner = profile?.role === "owner";
   const cursorOn = !!process.env.CURSOR_API_KEY;
   const hook = isOwner

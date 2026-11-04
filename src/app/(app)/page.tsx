@@ -4,6 +4,7 @@ import { createTask, signOut } from "@/app/actions";
 import { Face, SectionTitle, TaskStatusPill, relative, timeShort } from "@/components/ui";
 import { CommandBox } from "@/components/command-box";
 import type { AgentStatus, TaskStatus } from "@/lib/types";
+import { connectionCheck } from "@/lib/connections";
 
 function greeting() {
   const h = Number(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: "America/Chicago" }));
@@ -21,7 +22,7 @@ export default async function HomePage() {
 
   const [profile, agents, approvals, active, recent] = await Promise.all([
     supabase.from("profiles").select("display_name, email").eq("id", user!.id).single(),
-    supabase.from("agents").select("id, name, role, status").order("sort_order"),
+    supabase.from("agents").select("id, name, role, status, adapter").order("sort_order"),
     supabase
       .from("approvals")
       .select("id, summary, action_type, requested_by, created_at")
@@ -44,7 +45,8 @@ export default async function HomePage() {
 
   const rawName = profile.data?.display_name ?? "";
   const first = /\d/.test(rawName) || !rawName ? "" : rawName.split(" ")[0];
-  const team = (agents.data ?? []) as { id: string; name: string; role: string; status: AgentStatus }[];
+  const real = await connectionCheck();
+  const team = ((agents.data ?? []) as { id: string; name: string; role: string; status: AgentStatus; adapter: string }[]).map((a) => ({ ...a, status: real(a) }));
   const working = new Set(
     ((active.data ?? []) as unknown as { agent_id: string | null; status: string }[])
       .filter((t) => t.status === "running")
@@ -96,7 +98,7 @@ export default async function HomePage() {
         </ul>
       </section>
 
-      <CommandBox action={createTask} agents={team.filter((a) => a.status !== "setup" || a.name === "Cursor" || a.name === "Claude Code").map((a) => a.name)} />
+      <CommandBox action={createTask} agents={team.filter((a) => a.status !== "setup").map((a) => a.name)} />
 
       {pendingCount > 0 && (
         <section className="flex flex-col gap-3">
