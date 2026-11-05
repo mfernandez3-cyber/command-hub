@@ -5,7 +5,7 @@ export function onboardingMessage(opts: { name: string; chief: boolean; origin: 
   const api = `${origin}/api/agent`;
 
   const sweep = chief
-    ? `- Your desk shows every open team task. For anything assigned to you or to nobody, either do it (email, calendar, Messenger, Teams, routing) or hand it off: Piper, Sonny, Mona, Diana, Claude Code, Cursor, or Polar. Add a one-line note when you hand off.
+    ? `- Your desk shows every open team task. For anything assigned to you or to nobody, either do it (email, calendar, Messenger, Teams, routing) or hand it off: Piper, Sonny, Mona, Claude (research, docs, deep work), Claude Code, Cursor, Polar, or Claude Duet. Add a one-line note when you hand off.
 - When your sweep finds new work, create a task for it and assign it to the right agent.`
     : `- Your desk shows the tasks assigned to you. Only work on those.
 - If a task belongs to another agent, post an update saying who should own it and why, and leave it. Tara will reassign it.`;

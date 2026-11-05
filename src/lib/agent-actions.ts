@@ -161,6 +161,7 @@ export async function askApproval(agent: DoorAgent, taskId: string, input: Recor
 }
 
 export async function newTask(agent: DoorAgent, input: Record<string, unknown>) {
+  if (agent.onlyTask) throw new DoorError(403, "A task pass can't create new tasks. Post an update on your task instead.");
   const instruction = text(input.instruction, "instruction");
   const title = typeof input.title === "string" && input.title.trim() ? input.title.trim().slice(0, 120) : instruction.slice(0, 80);
   const db = createAdminClient();
@@ -210,6 +211,7 @@ export async function readMemory(agent: DoorAgent, q: string | null) {
 
 /** An agent registers its own wake webhook (for example its Grok Bot routine). A test wake is sent right away. */
 export async function registerWakeHook(agent: DoorAgent, input: Record<string, unknown>) {
+  if (agent.onlyTask) throw new DoorError(403, "A task pass can't change the wake-up.");
   const url = text(input.url, "url", 500);
   let secret = text(input.key ?? input.secret, "key", 500);
   if (secret.toLowerCase().startsWith("bearer ")) secret = secret.slice(7).trim();
@@ -232,7 +234,7 @@ export async function registerWakeHook(agent: DoorAgent, input: Record<string, u
     last_error: null,
   });
   if (error) throw new DoorError(500, "Could not save the wake hook");
-  const test = await wakeAgent(agent.id, "test");
+  const test = (await wakeAgent(agent.id, "test")) as { ok: boolean; status?: number; error?: string | null };
   return {
     ok: test.ok,
     message: test.ok

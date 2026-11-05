@@ -258,6 +258,34 @@ export async function removeWakeHook(formData: FormData) {
   revalidatePath(`/agents/${agentId}`);
 }
 
+const KINDS: Record<string, { adapter: string; tier: string }> = {
+  grok: { adapter: "xai", tier: "full" },
+  claude: { adapter: "manual", tier: "full" },
+  checkin: { adapter: "browser_queue", tier: "bridge" },
+};
+
+/** Owner only: adds an agent to the team. */
+export async function addAgent(
+  _prev: { error?: string } | null,
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const { supabase } = await requireOwner();
+  const name = String(formData.get("name") ?? "").trim().slice(0, 40);
+  const role = String(formData.get("role") ?? "").trim().slice(0, 80) || "Team member";
+  const kind = KINDS[String(formData.get("kind"))] ?? KINDS.grok;
+  const visibility = formData.get("private") ? "owner" : "team";
+  if (!name) return { error: "Give the agent a name." };
+  const { data, error } = await supabase
+    .from("agents")
+    .insert({ name, role, adapter: kind.adapter, tier: kind.tier, visibility, status: "setup", sort_order: 50 })
+    .select("id")
+    .single();
+  if (error || !data) return { error: error?.message.includes("duplicate") ? `There's already an agent named ${name}.` : "Couldn't add the agent." };
+  revalidatePath("/agents");
+  revalidatePath("/");
+  redirect(`/agents/${data.id}`);
+}
+
 /** Owner only: takes an agent off the team. Its open tasks become unassigned so nothing is lost. */
 export async function removeAgent(formData: FormData) {
   const { supabase, name } = await requireOwner();

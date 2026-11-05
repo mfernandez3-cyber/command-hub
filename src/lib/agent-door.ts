@@ -1,8 +1,41 @@
 import "server-only";
-import { createHash, randomBytes } from "crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type DoorAgent = { id: string; name: string; can_route: boolean; visibility: "team" | "owner" };
+export type DoorAgent = {
+  id: string;
+  name: string;
+  can_route: boolean;
+  visibility: "team" | "owner";
+  /** Set when the caller used a task pass: it may only touch this one task. */
+  onlyTask?: string;
+};
+
+/*
+  Task passes. Agents that start fresh each time (Claude routines) get a short-lived pass with
+  every wake-up instead of a stored key. A pass works for one agent, one task, for 24 hours.
+*/
+function passSecret() {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.HUB_PASS_SECRET ?? "";
+}
+
+export function makeTaskPass(agentId: string, taskId: string, hours = 24) {
+  const exp = Math.floor(Date.now() / 1000) + hours * 3600;
+  const body = `${agentId}.${taskId}.${exp}`;
+  const sig = createHmac("sha256", passSecret()).update("pass:" + body).digest("base64url");
+  return `hubpass_${Buffer.from(body).toString("base64url")}.${sig}`;
+}
+
+function readTaskPass(pass: string): { agentId: string; taskId: string } | null {
+  const [b64, sig] = pass.slice("hubpass_".length).split(".");
+  if (!b64 || !sig) return null;
+  const body = Buffer.from(b64, "base64url").toString();
+  const want = createHmac("sha256", passSecret()).update("pass:" + body).digest("base64url");
+  if (want.length !== sig.length || !timingSafeEqual(Buffer.from(want), Buffer.from(sig))) return null;
+  const [agentId, taskId, exp] = body.split(".");
+  if (!agentId || !taskId || Number(exp) < Date.now() / 1000) return null;
+  return { agentId, taskId };
+}
 
 export function hashKey(key: string) {
   return createHash("sha256").update(key).digest("hex");
@@ -15,6 +48,20 @@ export function newKey() {
 
 /** Finds the agent that owns this key, or null. Also records that the agent checked in. */
 export async function agentForKey(key: string | null | undefined): Promise<DoorAgent | null> {
+  if (key?.startsWith("hubpass_")) {
+    const pass = readTaskPass(key);
+    if (!pass) return null;
+    const db = createAdminClient();
+    const { data } = await db.from("agents").select("id, name, can_route, visibility").eq("id", pass.agentId).maybeSingle();
+    if (!data) return null;
+    const now = new Date().toISOString();
+    await Promise.all([
+      db.from("agents").update({ last_seen_at: now }).eq("id", data.id),
+      db.from("agents").update({ status: "idle" }).eq("id", data.id).eq("status", "setup"),
+    ]);
+    // A pass never carries chief-of-staff powers, and only reaches its own task.
+    return { ...(data as DoorAgent), can_route: false, onlyTask: pass.taskId };
+  }
   if (!key || !key.startsWith("hub_")) return null;
   const db = createAdminClient();
   const { data } = await db
@@ -52,8 +99,29 @@ export const OPEN_STATUSES = ["queued", "running", "needs_you"] as const;
  * Tasks this agent may see: its own, plus (for a router like Tara) every task
  * on a team-visible agent or unassigned. Owner-only agents' work stays private.
  */
-export async function visibleTaskIds(agent: DoorAgent, statuses: readonly string[]) {
+export type DoorTask = {
+  id: string;
+  title: string;
+  instruction: string;
+  status: string;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+  result_summary: string | null;
+  agent_id: string | null;
+  agents: { name: string; visibility: string } | null;
+};
+
+export async function visibleTaskIds(agent: DoorAgent, statuses: readonly string[]): Promise<DoorTask[]> {
   const db = createAdminClient();
+  if (agent.onlyTask) {
+    const { data } = await db
+      .from("tasks")
+      .select("id, title, instruction, status, priority, created_at, updated_at, result_summary, agent_id, agents(name, visibility)")
+      .eq("id", agent.onlyTask)
+      .eq("agent_id", agent.id);
+    return (data ?? []) as unknown as DoorTask[];
+  }
   let q = db
     .from("tasks")
     .select("id, title, instruction, status, priority, created_at, updated_at, result_summary, agent_id, agents(name, visibility)")
@@ -63,13 +131,13 @@ export async function visibleTaskIds(agent: DoorAgent, statuses: readonly string
     .limit(50);
   if (!agent.can_route) q = q.eq("agent_id", agent.id);
   const { data } = await q;
-  type Row = NonNullable<typeof data>[number] & { agents: { name: string; visibility: string } | null };
-  return ((data ?? []) as Row[]).filter(
+  return ((data ?? []) as unknown as DoorTask[]).filter(
     (t) => t.agent_id === agent.id || !t.agents || t.agents.visibility === "team",
   );
 }
 
 export async function canTouchTask(agent: DoorAgent, taskId: string) {
+  if (agent.onlyTask && agent.onlyTask !== taskId) return null;
   const db = createAdminClient();
   const { data } = await db
     .from("tasks")

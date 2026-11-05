@@ -3,14 +3,17 @@ import { createClient } from "@/lib/supabase/server";
 import { AgentStatusPill, Face, PageTitle, SectionTitle, relative } from "@/components/ui";
 import type { Agent, AgentStatus } from "@/lib/types";
 import { connectionCheck } from "@/lib/connections";
+import { AddAgent } from "@/components/add-agent";
+import { addAgent } from "@/app/actions";
 
 type Row = Agent & { last_seen_at: string | null; can_route: boolean };
 
 const groups: { key: string; label: string; note: string; match: (a: Row) => boolean }[] = [
   { key: "lead", label: "Chief of staff", note: "Routes your instructions to the right agent.", match: (a) => a.can_route },
   { key: "grok", label: "Grok team", note: "Woken the moment a task lands.", match: (a) => a.adapter === "xai" && !a.can_route },
+  { key: "claude", label: "Claude", note: "Started fresh the moment a task lands, with your connected apps.", match: (a) => a.adapter === "manual" },
   { key: "code", label: "Coding agents", note: "Work in your GitHub repos and open pull requests.", match: (a) => a.adapter === "cursor" || a.adapter === "claude_code" },
-  { key: "mac", label: "On your Mac", note: "Check in every 15 minutes during the day.", match: (a) => a.tier === "bridge" },
+  { key: "mac", label: "Check in on a schedule", note: "Can't be woken from outside, so they check their desk regularly.", match: (a) => a.tier === "bridge" },
 ];
 
 export default async function TeamPage() {
@@ -34,11 +37,18 @@ export default async function TeamPage() {
     } else current.set(t.agent_id, { title: t.title, count: 1, running: t.status === "running" });
   }
   const real = await connectionCheck();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user!.id).maybeSingle();
+  const isOwner = me?.role === "owner";
   const rows = ((agents ?? []) as Row[]).map((a) => ({ ...a, status: real(a) }));
 
   return (
     <div className="flex flex-col gap-8">
-      <PageTitle sub={`${rows.length} agents. Tap one to see its work or connect it.`}>Team</PageTitle>
+      <PageTitle sub={`${rows.length} agents. Tap one to see its work or connect it.`} action={isOwner ? <AddAgent action={addAgent} /> : undefined}>
+        Team
+      </PageTitle>
 
       {groups.map((g) => {
         const list = rows.filter(g.match);
