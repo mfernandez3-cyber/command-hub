@@ -18,9 +18,13 @@ STEP 1. Save these two values in your secrets. Never share them, paste them in a
 
 ${
     scheduled
-      ? `STEP 2. Set up a scheduled workflow called "Command Hub check-in" that runs every 15 minutes from 8 AM to 8 PM Central, every day. Each run: open your Command Hub desk link from your secrets and handle any open tasks there, following the instructions below. If there are none, stop. Turn it on.
+      ? `STEP 2. Create a workflow called "Command Hub task" with a webhook trigger, so the Hub can start you the moment there's work. Instruction: "A Command Hub event just arrived. Open your Command Hub desk using the link in your secrets. Find the task in the input by its ID and handle it now, following your Command Hub instructions. If the event is test, just reply that the wake-up works." Turn it on. If you can't use webhook triggers, instead set the workflow to run every 15 minutes from 8 AM to 8 PM Central and handle any open tasks on your desk.
 
-STEP 3. Run "Command Hub check-in" once now to make sure your desk link opens. You should see a page titled "Agent desk".
+STEP 3. If you made a webhook trigger, register it with the Hub by sending this request with the webhook's web address (and its key, if it has one):
+POST ${api}/wake-hook
+Header: Authorization: Bearer <your Command Hub key from step 1>
+JSON body: {"url": "<webhook web address>", "key": "<webhook key, or leave empty>"}
+If you can't send requests yourself, tell Manny: "Copy my Command Hub task webhook address into my Wake-up on the Hub." Then open your desk link once to make sure it works. You should see a page titled "Agent desk".
 
 `
       : `STEP 2. Create a routine called "Command Hub task". Trigger: webhook. Instruction: "A Command Hub event just arrived. Open your Command Hub desk using the link in your secrets. Find the task in the payload by its ID and handle it now, following your Command Hub instructions. If the event is test, just reply in chat that the wake hook works." Turn the routine on.

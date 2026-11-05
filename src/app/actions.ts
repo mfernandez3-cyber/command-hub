@@ -225,7 +225,7 @@ export async function saveWakeHook(
   }
   if (parsed.protocol !== "https:" || ["localhost", "127.0.0.1"].includes(parsed.hostname))
     return { error: "The web address must start with https://" };
-  if (secret.length < 8) return { error: "Paste the key from the routine's Webhook section." };
+  // Some apps (like Polar) put the secret in the web address itself, so the key is optional.
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const { error } = await createAdminClient()
     .from("agent_webhooks")
@@ -233,7 +233,7 @@ export async function saveWakeHook(
       agent_id: agentId,
       url,
       secret,
-      secret_hint: secret.slice(0, 5) + "..." + secret.slice(-4),
+      secret_hint: secret ? secret.slice(0, 5) + "..." + secret.slice(-4) : "none",
       enabled: true,
       last_status: null,
       last_error: null,

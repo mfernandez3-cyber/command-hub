@@ -127,7 +127,7 @@ async function sendWake(
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json", ...extraHeaders },
+      headers: { ...(secret ? { Authorization: `Bearer ${secret}` } : {}), "Content-Type": "application/json", ...extraHeaders },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
       cache: "no-store",

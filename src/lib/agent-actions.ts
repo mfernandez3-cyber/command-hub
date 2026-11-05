@@ -213,7 +213,7 @@ export async function readMemory(agent: DoorAgent, q: string | null) {
 export async function registerWakeHook(agent: DoorAgent, input: Record<string, unknown>) {
   if (agent.onlyTask) throw new DoorError(403, "A task pass can't change the wake-up.");
   const url = text(input.url, "url", 500);
-  let secret = text(input.key ?? input.secret, "key", 500);
+  let secret = typeof (input.key ?? input.secret) === "string" ? String(input.key ?? input.secret).trim().slice(0, 500) : "";
   if (secret.toLowerCase().startsWith("bearer ")) secret = secret.slice(7).trim();
   let parsed: URL;
   try {
@@ -228,7 +228,7 @@ export async function registerWakeHook(agent: DoorAgent, input: Record<string, u
     agent_id: agent.id,
     url,
     secret,
-    secret_hint: secret.slice(0, 5) + "..." + secret.slice(-4),
+    secret_hint: secret ? secret.slice(0, 5) + "..." + secret.slice(-4) : "none",
     enabled: true,
     last_status: null,
     last_error: null,

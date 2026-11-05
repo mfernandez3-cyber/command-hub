@@ -127,7 +127,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
         </Panel>
       )}
 
-      {isOwner && a.adapter !== "cursor" && a.adapter !== "browser_queue" && a.adapter !== "manual" && (
+      {isOwner && a.adapter !== "cursor" && a.adapter !== "manual" && (
         <Panel
           title="Wake-up"
           note={`Starts ${a.name} the moment there's something to do: a new task, a handoff, your reply, or an approval decision.`}
