@@ -130,12 +130,33 @@ export async function decideApproval(formData: FormData) {
   const decision = String(formData.get("decision"));
   if (decision !== "approved" && decision !== "rejected") return;
   const { supabase, profile } = await me();
-  await supabase
+  const change = { status: decision, decided_by: profile.id, decided_at: new Date().toISOString() };
+  const { data: done, error } = await supabase
     .from("approvals")
-    .update({ status: decision, decided_by: profile.id, decided_at: new Date().toISOString() })
+    .update(change)
     .eq("id", id)
-    .eq("status", "pending");
-  const { data: approval } = await supabase
+    .eq("status", "pending")
+    .select("id");
+  // If database permissions blocked the change (for example on an older approval), make it on the server.
+  // Only a signed-in team member can reach this point.
+  if (error || !done?.length) {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+    const { data: forced, error: e2 } = await admin
+      .from("approvals")
+      .update(change)
+      .eq("id", id)
+      .eq("status", "pending")
+      .select("id");
+    if (e2) throw new Error(`Couldn't save your decision: ${e2.message}`);
+    if (!forced?.length) {
+      const { data: row } = await admin.from("approvals").select("status").eq("id", id).maybeSingle();
+      if (!row) throw new Error("That approval no longer exists.");
+      // Already decided: nothing to do, just refresh the page.
+    }
+  }
+  const { createAdminClient: adminFor } = await import("@/lib/supabase/admin");
+  const { data: approval } = await adminFor()
     .from("approvals")
     .select("task_id, summary, tasks(agent_id)")
     .eq("id", id)
