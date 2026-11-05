@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { decideApproval } from "@/app/actions";
+import { decideApprovalState } from "@/app/actions";
+import { ApprovalButtons } from "@/components/approval-buttons";
 import { EmptyState, Face, PageTitle, SectionTitle, btn, relative } from "@/components/ui";
 import type { Approval } from "@/lib/types";
 
@@ -65,15 +66,7 @@ export default async function ApprovalsPage() {
                     </>
                   )}
                 </dl>
-                <form action={decideApproval} className="grid grid-cols-2 gap-2.5">
-                  <input type="hidden" name="id" value={a.id} />
-                  <button name="decision" value="rejected" className={`${btn.secondary} min-h-12`}>
-                    Reject
-                  </button>
-                  <button name="decision" value="approved" className={`${btn.primary} min-h-12`}>
-                    Approve
-                  </button>
-                </form>
+                <ApprovalButtons id={a.id} action={decideApprovalState} />
               </div>
             </li>
           ))}

@@ -125,49 +125,74 @@ export async function requestApproval(formData: FormData) {
   revalidatePath("/");
 }
 
-export async function decideApproval(formData: FormData) {
-  const id = String(formData.get("id"));
-  const decision = String(formData.get("decision"));
-  if (decision !== "approved" && decision !== "rejected") return;
-  const { supabase, profile } = await me();
-  const change = { status: decision, decided_by: profile.id, decided_at: new Date().toISOString() };
-  const { data: done, error } = await supabase
-    .from("approvals")
-    .update(change)
-    .eq("id", id)
-    .eq("status", "pending")
-    .select("id");
-  // If database permissions blocked the change (for example on an older approval), make it on the server.
-  // Only a signed-in team member can reach this point.
-  if (error || !done?.length) {
-    const { createAdminClient } = await import("@/lib/supabase/admin");
-    const admin = createAdminClient();
-    const { data: forced, error: e2 } = await admin
+/** Approve or reject. Returns a plain message so the page can show what happened. */
+export async function decideApprovalState(
+  _prev: { ok?: boolean; message?: string } | null,
+  formData: FormData,
+): Promise<{ ok?: boolean; message?: string }> {
+  try {
+    const id = String(formData.get("id") ?? "");
+    const decision = String(formData.get("decision") ?? "");
+    if (!id) return { message: "Missing approval id." };
+    if (decision !== "approved" && decision !== "rejected") return { message: `Unknown choice "${decision}".` };
+    const { supabase, profile } = await me();
+    const change = { status: decision, decided_by: profile.id, decided_at: new Date().toISOString() };
+
+    const { data: done, error } = await supabase
       .from("approvals")
       .update(change)
       .eq("id", id)
       .eq("status", "pending")
       .select("id");
-    if (e2) throw new Error(`Couldn't save your decision: ${e2.message}`);
-    if (!forced?.length) {
-      const { data: row } = await admin.from("approvals").select("status").eq("id", id).maybeSingle();
-      if (!row) throw new Error("That approval no longer exists.");
-      // Already decided: nothing to do, just refresh the page.
+
+    let saved = !error && (done?.length ?? 0) > 0;
+    const detail = error ? error.message : "";
+    if (!saved) {
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const admin = createAdminClient();
+      const { data: forced, error: e2 } = await admin
+        .from("approvals")
+        .update(change)
+        .eq("id", id)
+        .eq("status", "pending")
+        .select("id");
+      if (e2) return { message: `Couldn't save: ${e2.message}${detail ? ` (first try: ${detail})` : ""}` };
+      saved = (forced?.length ?? 0) > 0;
+      if (!saved) {
+        const { data: row, error: e3 } = await admin.from("approvals").select("status").eq("id", id).maybeSingle();
+        if (e3) return { message: `Couldn't read the approval: ${e3.message}` };
+        if (!row) return { message: "That approval no longer exists. Reload the page." };
+        if (row.status !== "pending") {
+          revalidatePath("/approvals");
+          return { ok: true, message: `Already ${row.status}.` };
+        }
+        return { message: "The change didn't stick. Send Claude a screenshot of this message." };
+      }
     }
+
+    const { createAdminClient: adminFor } = await import("@/lib/supabase/admin");
+    const { data: approval } = await adminFor()
+      .from("approvals")
+      .select("task_id, summary, tasks(agent_id)")
+      .eq("id", id)
+      .maybeSingle();
+    const agentId = (approval?.tasks as unknown as { agent_id: string | null } | null)?.agent_id;
+    if (approval && agentId) {
+      after(() => wakeAgent(agentId, "approval_decided", approval.task_id, `${decision}: ${approval.summary}`));
+    }
+    revalidatePath("/approvals");
+    revalidatePath("/tasks");
+    revalidatePath("/");
+    return { ok: true, message: decision === "approved" ? "Approved." : "Rejected." };
+  } catch (e) {
+    if (e && typeof e === "object" && "digest" in e && String((e as { digest: string }).digest).startsWith("NEXT_REDIRECT")) throw e;
+    return { message: `Something went wrong: ${e instanceof Error ? e.message : String(e)}` };
   }
-  const { createAdminClient: adminFor } = await import("@/lib/supabase/admin");
-  const { data: approval } = await adminFor()
-    .from("approvals")
-    .select("task_id, summary, tasks(agent_id)")
-    .eq("id", id)
-    .maybeSingle();
-  const agentId = (approval?.tasks as unknown as { agent_id: string | null } | null)?.agent_id;
-  if (approval && agentId) {
-    after(() => wakeAgent(agentId, "approval_decided", approval.task_id, `${decision}: ${approval.summary}`));
-  }
-  revalidatePath("/approvals");
-  revalidatePath("/tasks");
-  revalidatePath("/");
+}
+
+/** Kept for older pages that still post to it. */
+export async function decideApproval(formData: FormData) {
+  await decideApprovalState(null, formData);
 }
 
 export async function saveMemory(formData: FormData) {
