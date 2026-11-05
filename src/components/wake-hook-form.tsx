@@ -22,7 +22,7 @@ export function WakeHookForm({
         <input name="url" required inputMode="url" autoComplete="off" placeholder="https://..." className={field} />
       </label>
       <label className="flex flex-col gap-1 text-[13px] font-medium text-quiet">
-        Key (leave blank if the app didn't give you one)
+        Key (leave blank if the app didn&apos;t give you one)
         <input name="secret" type="password" autoComplete="off" className={field} />
       </label>
       <button disabled={pending} className="h-11 rounded-full bg-press text-sm font-semibold text-press-ink disabled:opacity-60">
