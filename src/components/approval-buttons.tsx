@@ -1,24 +1,35 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useTransition } from "react";
 import { btn } from "@/components/ui";
+
+type State = { ok?: boolean; message?: string } | null;
 
 export function ApprovalButtons({
   id,
   action,
 }: {
   id: string;
-  action: (prev: { ok?: boolean; message?: string } | null, fd: FormData) => Promise<{ ok?: boolean; message?: string }>;
+  action: (prev: State, fd: FormData) => Promise<{ ok?: boolean; message?: string }>;
 }) {
-  const [state, formAction, pending] = useActionState(action, null);
+  const [state, run, pending] = useActionState(action, null);
+  const [, startTransition] = useTransition();
+
+  // Build the form data ourselves so the choice is always sent, whatever the browser does with button values.
+  function decide(decision: "approved" | "rejected") {
+    const fd = new FormData();
+    fd.set("id", id);
+    fd.set("decision", decision);
+    startTransition(() => run(fd));
+  }
+
   return (
-    <form action={formAction} className="flex flex-col gap-2">
-      <input type="hidden" name="id" value={id} />
+    <div className="flex flex-col gap-2">
       <div className="grid grid-cols-2 gap-2.5">
-        <button type="submit" name="decision" value="rejected" disabled={pending} className={`${btn.secondary} min-h-12`}>
+        <button type="button" onClick={() => decide("rejected")} disabled={pending} className={`${btn.secondary} min-h-12`}>
           Reject
         </button>
-        <button type="submit" name="decision" value="approved" disabled={pending} className={`${btn.primary} min-h-12`}>
+        <button type="button" onClick={() => decide("approved")} disabled={pending} className={`${btn.primary} min-h-12`}>
           {pending ? "Saving..." : "Approve"}
         </button>
       </div>
@@ -27,6 +38,6 @@ export function ApprovalButtons({
           {state.message}
         </p>
       )}
-    </form>
+    </div>
   );
 }
