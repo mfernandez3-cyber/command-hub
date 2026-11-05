@@ -22,7 +22,7 @@ export default async function HomePage() {
 
   const [profile, agents, approvals, active, recent] = await Promise.all([
     supabase.from("profiles").select("display_name, email").eq("id", user!.id).single(),
-    supabase.from("agents").select("id, name, role, status, adapter").order("sort_order"),
+    supabase.from("agents").select("id, name, role, status, adapter, last_seen_at").order("sort_order"),
     supabase
       .from("approvals")
       .select("id, summary, action_type, requested_by, created_at")
@@ -46,7 +46,7 @@ export default async function HomePage() {
   const rawName = profile.data?.display_name ?? "";
   const first = /\d/.test(rawName) || !rawName ? "" : rawName.split(" ")[0];
   const real = await connectionCheck();
-  const team = ((agents.data ?? []) as { id: string; name: string; role: string; status: AgentStatus; adapter: string }[]).map((a) => ({ ...a, status: real(a) }));
+  const team = ((agents.data ?? []) as { id: string; name: string; role: string; status: AgentStatus; adapter: string; last_seen_at: string | null }[]).map((a) => ({ ...a, status: real(a) }));
   const working = new Set(
     ((active.data ?? []) as unknown as { agent_id: string | null; status: string }[])
       .filter((t) => t.status === "running")

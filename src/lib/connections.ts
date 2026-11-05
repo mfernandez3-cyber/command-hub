@@ -14,9 +14,10 @@ export async function connectionCheck() {
     hooked = new Set((data ?? []).map((r) => r.agent_id as string));
   } catch {}
   const cursorOn = !!process.env.CURSOR_API_KEY;
-  return (a: { id: string; adapter?: string; status: AgentStatus }): AgentStatus => {
+  return (a: { id: string; adapter?: string; status: AgentStatus; last_seen_at?: string | null }): AgentStatus => {
     if (a.adapter === "cursor" && !cursorOn) return "setup";
-    if (a.adapter === "claude_code" && !hooked.has(a.id)) return "setup";
+    // Claude Code connects either through the Hub connector (it has checked in) or a GitHub wake-up.
+    if (a.adapter === "claude_code" && !hooked.has(a.id) && !a.last_seen_at) return "setup";
     return a.status;
   };
 }

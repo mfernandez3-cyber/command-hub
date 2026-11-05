@@ -82,9 +82,9 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
 
       {isOwner && a.adapter !== "cursor" && (
         <Panel
-          title={a.adapter === "manual" ? "Connector" : "Connection key"}
+          title={a.adapter === "manual" || a.adapter === "claude_code" ? "Connector" : "Connection key"}
           note={
-            a.adapter === "manual"
+            a.adapter === "manual" || a.adapter === "claude_code"
               ? `Turns the Command Hub into a connector for ${a.name}. Any Claude on your account (chats, scheduled tasks, Claude Duet) can then pick up these tasks and report back. It can never approve anything itself.`
               : `Lets ${a.name} pick up tasks, post updates, and ask you for approvals. It can never approve anything itself.`
           }
@@ -100,8 +100,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
             agentName={a.name}
             chief={a.can_route}
             scheduled={a.adapter === "browser_queue"}
-            forGithub={a.adapter === "claude_code"}
-            forConnector={a.adapter === "manual"}
+            forConnector={a.adapter === "manual" || a.adapter === "claude_code"}
             hasKey={!!key}
             action={createAgentKey}
           />
@@ -114,7 +113,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
         </Panel>
       )}
 
-      {isOwner && a.adapter !== "cursor" && a.adapter !== "browser_queue" && a.adapter !== "manual" && (
+      {isOwner && a.adapter !== "cursor" && a.adapter !== "browser_queue" && a.adapter !== "manual" && a.adapter !== "claude_code" && (
         <Panel
           title="Wake-up"
           note={`Starts ${a.name} the moment there's something to do: a new task, a handoff, your reply, or an approval decision.`}
