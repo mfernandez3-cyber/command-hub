@@ -46,7 +46,16 @@ export default async function TeamPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageTitle sub={`${rows.length} agents. Tap one to see its work or connect it.`} action={isOwner ? <AddAgent action={addAgent} /> : undefined}>
+      <PageTitle sub={`${rows.length} agents. Tap one to see its work or connect it.`} action={
+          isOwner ? (
+            <div className="flex items-center gap-2">
+              <Link href="/health" className="inline-flex min-h-11 items-center rounded-full border border-line bg-raised px-4 text-[14px] font-semibold">
+                System health
+              </Link>
+              <AddAgent action={addAgent} />
+            </div>
+          ) : undefined
+        }>
         Team
       </PageTitle>
 

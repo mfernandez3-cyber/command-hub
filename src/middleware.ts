@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
-  if (path === "/agent" || path.startsWith("/api/agent/") || path.startsWith("/api/integrations/") || path.startsWith("/api/mcp/")) return response;
+  if (path === "/agent" || path.startsWith("/api/agent/") || path.startsWith("/api/integrations/") || path.startsWith("/api/mcp/") || path.startsWith("/api/cron/")) return response;
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

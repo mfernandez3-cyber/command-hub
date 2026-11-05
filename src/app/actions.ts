@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { wakeAgent } from "@/lib/wake";
+import { retryWake, wakeAgent } from "@/lib/wake";
 import type { TaskStatus } from "@/lib/types";
 
 async function me() {
@@ -287,6 +287,13 @@ export async function saveWakeHook(
   if (error) return { error: "Could not save. Has the 0004 database update been run?" };
   revalidatePath(`/agents/${agentId}`);
   return { ok: true };
+}
+
+/** Owner only: sends a failed wake-up again right now (System health page). */
+export async function retryWakeAction(formData: FormData) {
+  await requireOwner();
+  await retryWake(String(formData.get("id")));
+  revalidatePath("/health");
 }
 
 export async function testWakeHook(formData: FormData) {

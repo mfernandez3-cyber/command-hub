@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TabBar } from "@/components/tab-bar";
 import { LiveRefresh } from "@/components/live-refresh";
+import { after } from "next/server";
+import { runHeartbeat } from "@/lib/wake";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -12,6 +14,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const { data: profile } = await supabase.from("profiles").select("id, email").eq("id", user.id).maybeSingle();
   if (!profile) redirect("/login?error=not-allowed");
+
+  // Backup for the Supabase heartbeat: while the app is open, retries still go out.
+  after(() => runHeartbeat({ throttleSeconds: 50 }).catch(() => {}));
 
   const { count } = await supabase
     .from("approvals")
