@@ -66,6 +66,19 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
+      {isOwner && a.adapter === "manual" && (
+        <Panel title="Instant wake-up">
+          <p className={`text-[15px] ${process.env.ANTHROPIC_API_KEY ? "text-go" : "text-ink-2"}`}>
+            {process.env.ANTHROPIC_API_KEY
+              ? `On. ${a.name} starts the moment a task lands, you reply, or you decide on an approval.`
+              : "Off. Add ANTHROPIC_API_KEY in Vercel, then redeploy."}
+          </p>
+          <p className="text-[14px] text-ink-3">
+            Apps through Zapier: {process.env.ZAPIER_MCP_URL ? "connected" : "not connected (add ZAPIER_MCP_URL in Vercel for Gmail, Drive, Pipedrive)"}.
+          </p>
+        </Panel>
+      )}
+
       {isOwner && a.adapter === "cursor" && (
         <Panel title="Connection">
           <p className={`text-[15px] ${cursorOn ? "text-go" : "text-ink-2"}`}>
@@ -82,9 +95,9 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
 
       {isOwner && a.adapter !== "cursor" && (
         <Panel
-          title={a.adapter === "manual" || a.adapter === "claude_code" ? "Connector" : "Connection key"}
+          title={a.adapter === "manual" ? "Connector (optional)" : "Connection key"}
           note={
-            a.adapter === "manual" || a.adapter === "claude_code"
+            a.adapter === "manual"
               ? `Turns the Command Hub into a connector for ${a.name}. Any Claude on your account (chats, scheduled tasks, Claude Duet) can then pick up these tasks and report back. It can never approve anything itself.`
               : `Lets ${a.name} pick up tasks, post updates, and ask you for approvals. It can never approve anything itself.`
           }
@@ -100,7 +113,8 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
             agentName={a.name}
             chief={a.can_route}
             scheduled={a.adapter === "browser_queue"}
-            forConnector={a.adapter === "manual" || a.adapter === "claude_code"}
+            forConnector={a.adapter === "manual"}
+            forGithub={a.adapter === "claude_code"}
             hasKey={!!key}
             action={createAgentKey}
           />
@@ -113,7 +127,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
         </Panel>
       )}
 
-      {isOwner && a.adapter !== "cursor" && a.adapter !== "browser_queue" && a.adapter !== "manual" && a.adapter !== "claude_code" && (
+      {isOwner && a.adapter !== "cursor" && a.adapter !== "browser_queue" && a.adapter !== "manual" && (
         <Panel
           title="Wake-up"
           note={`Starts ${a.name} the moment there's something to do: a new task, a handoff, your reply, or an approval decision.`}

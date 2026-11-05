@@ -18,6 +18,7 @@ export async function connectionCheck() {
     if (a.adapter === "cursor" && !cursorOn) return "setup";
     // Claude Code connects either through the Hub connector (it has checked in) or a GitHub wake-up.
     if (a.adapter === "claude_code" && !hooked.has(a.id) && !a.last_seen_at) return "setup";
+    if (a.adapter === "manual" && !process.env.ANTHROPIC_API_KEY && !a.last_seen_at) return "setup";
     return a.status;
   };
 }

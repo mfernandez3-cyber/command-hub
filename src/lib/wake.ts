@@ -34,6 +34,21 @@ export async function wakeAgent(agentId: string | null | undefined, event: WakeE
     return { ok: true };
   }
 
+  // Claude agents run instantly inside the Hub when an Anthropic API key is set.
+  if (who?.adapter === "manual" && taskId && process.env.ANTHROPIC_API_KEY && event !== "test") {
+    const { signRun } = await import("@/lib/claude-runner");
+    const q = new URLSearchParams({ task: taskId, sig: signRun(taskId), event, ...(note ? { note: note.slice(0, 1500) } : {}) });
+    try {
+      const res = await fetch(`${hubOrigin()}/api/integrations/claude?${q}`, { method: "POST", signal: AbortSignal.timeout(10000) });
+      if (res.ok) {
+        await db.from("events").insert({ task_id: taskId, author: "system", type: "status", body: "Woke Claude." });
+        return { ok: true };
+      }
+    } catch {}
+    await db.from("events").insert({ task_id: taskId, author: "system", type: "status", body: "Couldn't start Claude right now." });
+    return { ok: false };
+  }
+
   const { data: hook } = await db.from("agent_webhooks").select("url, secret, enabled").eq("agent_id", agentId).maybeSingle();
   if (!hook || !hook.enabled) return { ok: false, skipped: true };
 
