@@ -9,6 +9,7 @@ export function KeyMaker({
   chief,
   scheduled = false,
   forGithub = false,
+  forConnector = false,
   hasKey,
   action,
 }: {
@@ -17,6 +18,7 @@ export function KeyMaker({
   chief: boolean;
   scheduled?: boolean;
   forGithub?: boolean;
+  forConnector?: boolean;
   hasKey: boolean;
   action: (prev: { key?: string; error?: string } | null, fd: FormData) => Promise<{ key?: string; error?: string }>;
 }) {
@@ -25,6 +27,7 @@ export function KeyMaker({
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const deskLink = state?.key ? `${origin}/agent?key=${state.key}` : "";
+  const connector = state?.key ? `${origin}/api/mcp/${state.key}` : "";
   const setup = state?.key ? onboardingMessage({ name: agentName, chief, origin, key: state.key, scheduled }) : "";
 
   async function copy(value: string, label: string) {
@@ -41,7 +44,16 @@ export function KeyMaker({
             Copy this now. For safety, it&apos;s only shown once. Paste it into your private chat with {agentName} only,
             never a group chat or a shared doc.
           </p>
-          {!forGithub && <div className="flex flex-col gap-1">
+          {forConnector && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-quiet">Connector address (paste into Claude: Settings, Connectors, Add custom connector)</span>
+              <code className="break-all rounded bg-card p-2 font-mono text-xs">{connector}</code>
+              <button type="button" onClick={() => copy(connector, "connector")} className="h-11 rounded-full bg-press text-sm font-semibold text-press-ink">
+                {copied === "connector" ? "Copied" : "Copy connector address"}
+              </button>
+            </div>
+          )}
+          {!forGithub && !forConnector && <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-quiet">Setup message (paste this whole thing to {agentName})</span>
             <textarea readOnly value={setup} rows={6} className="rounded bg-card p-2 font-mono text-xs" />
             <button type="button" onClick={() => copy(setup, "setup")} className="h-11 rounded-full bg-press text-sm font-semibold text-press-ink">

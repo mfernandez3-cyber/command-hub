@@ -16,7 +16,7 @@ export async function connectionCheck() {
   const cursorOn = !!process.env.CURSOR_API_KEY;
   return (a: { id: string; adapter?: string; status: AgentStatus }): AgentStatus => {
     if (a.adapter === "cursor" && !cursorOn) return "setup";
-    if ((a.adapter === "claude_code" || a.adapter === "manual") && !hooked.has(a.id)) return "setup";
+    if (a.adapter === "claude_code" && !hooked.has(a.id)) return "setup";
     return a.status;
   };
 }

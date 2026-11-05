@@ -80,10 +80,14 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
         </Panel>
       )}
 
-      {isOwner && a.adapter !== "cursor" && a.adapter !== "manual" && (
+      {isOwner && a.adapter !== "cursor" && (
         <Panel
-          title="Connection key"
-          note={`Lets ${a.name} pick up tasks, post updates, and ask you for approvals. It can never approve anything itself.`}
+          title={a.adapter === "manual" ? "Connector" : "Connection key"}
+          note={
+            a.adapter === "manual"
+              ? `Turns the Command Hub into a connector for ${a.name}. Any Claude on your account (chats, scheduled tasks, Claude Duet) can then pick up these tasks and report back. It can never approve anything itself.`
+              : `Lets ${a.name} pick up tasks, post updates, and ask you for approvals. It can never approve anything itself.`
+          }
         >
           {key && (
             <p className="rounded-xl bg-sunken px-3.5 py-2.5 text-[14px]">
@@ -97,6 +101,7 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
             chief={a.can_route}
             scheduled={a.adapter === "browser_queue"}
             forGithub={a.adapter === "claude_code"}
+            forConnector={a.adapter === "manual"}
             hasKey={!!key}
             action={createAgentKey}
           />
@@ -109,14 +114,10 @@ export default async function AgentPage({ params }: { params: Promise<{ id: stri
         </Panel>
       )}
 
-      {isOwner && a.adapter !== "cursor" && a.adapter !== "browser_queue" && (
+      {isOwner && a.adapter !== "cursor" && a.adapter !== "browser_queue" && a.adapter !== "manual" && (
         <Panel
           title="Wake-up"
-          note={
-            a.adapter === "manual"
-              ? `Starts a fresh ${a.name} session the moment there's something to do. Paste the API trigger web address and token from the routine at claude.ai/code/routines.`
-              : `Starts ${a.name} the moment there's something to do: a new task, a handoff, your reply, or an approval decision.`
-          }
+          note={`Starts ${a.name} the moment there's something to do: a new task, a handoff, your reply, or an approval decision.`}
         >
           {hook && (
             <p className={`rounded-xl px-3.5 py-2.5 text-[14px] ${hook.last_error ? "bg-stop-soft text-stop" : "bg-go-soft text-go"}`}>
